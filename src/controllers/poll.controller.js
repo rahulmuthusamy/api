@@ -3,7 +3,8 @@ const response = require('../utils/response');
 const HTTP = require('../utils/httpStatusCodes');
 
 exports.getPolls = async (req, res) => {
-    const data = await pollService.getPolls(req.query);
+    let player = { id: 15 };
+    const data = await pollService.getPolls(player);
     return response.success(res, "Polls fetched successfully", { polls: data });
 };
 

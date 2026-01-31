@@ -1,6 +1,6 @@
 module.exports = {
   LOGIN: {
-    windowMs: 15 * 60 * 1000, 
+    windowMs: 15 * 60 * 1000,
     max: 5,
     messageKey: 'TOO_MANY_LOGIN_ATTEMPTS'
   },
@@ -11,7 +11,7 @@ module.exports = {
   },
   DEFAULT: {
     windowMs: 5 * 60 * 1000,
-    max: 50,
+    max: 100,
     messageKey: 'TOO_MANY_REQUESTS'
   }
 };

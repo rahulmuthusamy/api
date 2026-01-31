@@ -14,6 +14,17 @@ exports.getAllSessions = async (req, res) => {
   return response.success(res, MSG.AUCTIONSESSION.FETCH_SUCCESS, { sessions });
 };
 
+exports.getUpcomingSessions = async (req, res) => {
+
+  const sessions = await auctionService.getUpcomingAuctionSessions();
+
+  if (!sessions.length) {
+    return response.success(res, MSG.AUCTIONSESSION.NOT_FOUND, { sessions }, HTTP.NOT_FOUND);
+  }
+
+  return response.success(res, MSG.AUCTIONSESSION.FETCH_SUCCESS, { sessions });
+};
+
 exports.getSessionById = async (req, res) => {
 
   const { id } = req.params;
@@ -51,7 +62,7 @@ exports.updateSession = async (req, res) => {
 exports.deleteSession = async (req, res) => {
 
   const { id } = req.params;
-  
+
   if (!id) {
     return response.error(res, { message: MSG.AUCTIONSESSION.MISSINGID })
   }

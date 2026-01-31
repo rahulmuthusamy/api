@@ -1,14 +1,13 @@
 const { Poll, PollOption, PollVote, PlayerMaster } = require('../models');
 
-exports.getPolls = async (query = {}, playerId = null) => {
+exports.getPolls = async (query = {}, playerId = 15) => {
     return await Poll.findAll({
-        where: query,
         include: [
             { model: PollOption, as: 'options' },
             {
                 model: PollVote,
                 as: 'votes',
-                include: [{ model: PlayerMaster, attributes: ['id', 'FirstName', 'LastName'] }]
+                // include: [{ model: PlayerMaster, attributes: ['id', 'FirstName', 'LastName'] }]
             }
         ],
         order: [['createdAt', 'DESC'], [{ model: PollOption, as: 'options' }, 'Order', 'ASC']]

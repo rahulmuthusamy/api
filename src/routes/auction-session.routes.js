@@ -8,6 +8,8 @@ const validateRequest = require('../middlewares/validateRequest');
 
 router.get('/', auctionSessionController.getAllSessions);
 
+router.get('/upcoming', auctionSessionController.getUpcomingSessions);
+
 router.get('/:id', auctionSessionController.getSessionById);
 
 router.post('/',

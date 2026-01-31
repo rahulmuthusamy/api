@@ -1,10 +1,23 @@
+const { Op } = require('sequelize');
 const { AuctionSession } = require('../models');
 
 const getAllAuctionSessions = async () => {
-
     return await AuctionSession.findAll();
-
 };
+
+const getUpcomingAuctionSessions = async () => {
+    return await AuctionSession.findAll(
+        {
+            where: {
+                Status: 'upcoming',
+                EndDate: {
+                    [Op.gte]: new Date()
+                }
+            }
+        }
+    );
+};
+
 
 const getAuctionSessionById = async (id) => {
 
@@ -28,7 +41,7 @@ const updateAuctionSession = async (id, data) => {
 };
 
 const deleteAuctionSession = async (id) => {
-    
+
     return await AuctionSession.destroy({ where: { id } });
 };
 
@@ -38,4 +51,5 @@ module.exports = {
     createAuctionSession,
     updateAuctionSession,
     deleteAuctionSession,
+    getUpcomingAuctionSessions
 };
