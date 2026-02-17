@@ -10,7 +10,7 @@ module.exports = {
             Organizer: { type: Sequelize.STRING, allowNull: true },
             PrizePool: { type: Sequelize.STRING, allowNull: true },
             Rules: { type: Sequelize.TEXT, allowNull: true },
-            Category: { type: Sequelize.STRING, allowNull: true } // e.g., Senior, Junior, Corporate
+            Category: { type: Sequelize.STRING, allowNull: true }  
         };
 
         for (const [colName, colDef] of Object.entries(columnsToAdd)) {

@@ -1,26 +1,26 @@
 const { TeamMaster } = require('../models');
+const BaseService = require('./base.service');
+
+const service = new BaseService(TeamMaster);
 
 const getAllTeams = async () => {
-    return await TeamMaster.findAll();
+    return await service.getAll();
 };
 
 const getTeamsById = async (id) => {
-    return await TeamMaster.findByPk(id);
+    return await service.getById(id);
 };
 
 const createTeams = async (data) => {
-    return await TeamMaster.create(data);
+    return await service.create(data);
 };
 
 const updateTeams = async (id, data) => {
-    const team = await TeamMaster.findByPk(id);
-    if (!team) return null;
-    await team.update(data);
-    return team;
+    return await service.update(id, data);
 };
 
 const deleteTeamsByID = async (id) => {
-    return await TeamMaster.destroy({ where: { TeamID: id } });
+    return await service.delete(id);
 };
 
 module.exports = {

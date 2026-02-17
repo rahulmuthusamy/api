@@ -1,76 +1,69 @@
 const { Gallery, Carousel, Sponsor, AppSetting } = require('../models');
+const BaseService = require('./base.service');
+
+const galleryService = new BaseService(Gallery);
+const carouselService = new BaseService(Carousel);
+const sponsorService = new BaseService(Sponsor);
+const appSettingsService = new BaseService(AppSetting);
+
 
 // Gallery Services
 exports.getAllGallery = async (query = {}) => {
-    return await Gallery.findAll({ where: query, order: [['Order', 'ASC'], ['createdAt', 'DESC']] });
+    return await galleryService.getAll({ where: query, order: [['Order', 'ASC'], ['createdAt', 'DESC']] });
 };
 
 exports.createGallery = async (data) => {
-    return await Gallery.create(data);
+    return await galleryService.create(data);
 };
 
 exports.updateGallery = async (id, data) => {
-    const record = await Gallery.findByPk(id);
-    if (!record) return null;
-    return await record.update(data);
+    return await galleryService.update(id, data);
 };
 
 exports.deleteGallery = async (id) => {
-    const record = await Gallery.findByPk(id);
-    if (!record) return null;
-    await record.destroy();
-    return true;
+    return await galleryService.delete(id);
 };
 
 // Carousel Services
 exports.getAllCarousel = async (query = {}) => {
-    return await Carousel.findAll({ where: query, order: [['Order', 'ASC']] });
+    return await carouselService.getAll({ where: query, order: [['Order', 'ASC']] });
 };
 
 exports.createCarousel = async (data) => {
-    return await Carousel.create(data);
+    return await carouselService.create(data);
 };
 
 exports.updateCarousel = async (id, data) => {
-    const record = await Carousel.findByPk(id);
-    if (!record) return null;
-    return await record.update(data);
+    return await carouselService.update(id, data);
 };
 
 exports.deleteCarousel = async (id) => {
-    const record = await Carousel.findByPk(id);
-    if (!record) return null;
-    await record.destroy();
-    return true;
+    return await carouselService.delete(id);
 };
 
 // Sponsor Services
 exports.getAllSponsors = async (query = {}) => {
-    return await Sponsor.findAll({ where: query, order: [['Order', 'ASC']] });
+    return await sponsorService.getAll({ where: query, order: [['Order', 'ASC']] });
 };
 
 exports.createSponsor = async (data) => {
-    return await Sponsor.create(data);
+    return await sponsorService.create(data);
 };
 
 exports.updateSponsor = async (id, data) => {
-    const record = await Sponsor.findByPk(id);
-    if (!record) return null;
-    return await record.update(data);
+    return await sponsorService.update(id, data);
 };
 
 exports.deleteSponsor = async (id) => {
-    const record = await Sponsor.findByPk(id);
-    if (!record) return null;
-    await record.destroy();
-    return true;
+    return await sponsorService.delete(id);
 };
 
 // AppSettings Services
 exports.getAppSettings = async () => {
-    let settings = await AppSetting.findOne();
+    // Custom singleton logic
+    let settings = await appSettingsService.findOne();
     if (!settings) {
-        settings = await AppSetting.create({
+        settings = await appSettingsService.create({
             AppName: 'Kattur Cricket Club',
             AppDescription: 'Village Cricket League Management System'
         });
@@ -79,9 +72,10 @@ exports.getAppSettings = async () => {
 };
 
 exports.updateAppSettings = async (data) => {
-    let settings = await AppSetting.findOne();
+    // Custom singleton update logic
+    let settings = await appSettingsService.findOne();
     if (!settings) {
-        return await AppSetting.create(data);
+        return await appSettingsService.create(data);
     }
     return await settings.update(data);
 };

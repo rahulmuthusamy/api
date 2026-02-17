@@ -1,42 +1,35 @@
 const { PlayerMaster } = require('../models');
+const BaseService = require('./base.service');
 const response = require('../utils/response');
 const { PLAYERS } = require('../utils/messages');
 const HTTP = require('../utils/httpStatusCodes');
+
+const service = new BaseService(PlayerMaster);
+
 const getAllPlayers = async () => {
-
-    return await PlayerMaster.findAll();
-
+    return await service.getAll();
 };
 
 const getPlayerById = async (id) => {
-
-    return await PlayerMaster.findByPk(id);
+    return await service.getById(id);
 };
 
 const createPlayers = async (data) => {
-
-    return await PlayerMaster.create(data);
+    return await service.create(data);
 };
 
 const updatePlayers = async (id, data) => {
-
-    const players = await PlayerMaster.findByPk(id);
-
-    if (!players) return null;
-
-    await players.update(data);
-
-    return players;
+    return await service.update(id, data);
 };
 
 const deletePlayerByID = async (id) => {
-
-    return await PlayerMaster.destroy({ where: { PlayerID: id } });
+    return await service.delete(id);
 };
 
 const findPlayer = async (where) => {
-    return await PlayerMaster.findOne({ where });
+    return await service.findOne({ where });
 };
+
 module.exports = {
     getAllPlayers,
     getPlayerById,
