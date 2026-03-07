@@ -10,7 +10,8 @@ const FOLDERS = {
     gallery: 'gallery',
     sponsors: 'sponsors',
     branding: 'branding',
-    teams: 'teams'
+    teams: 'teams',
+    tournaments: 'tournaments'
 };
 
 // Storage factory

@@ -1,98 +1,146 @@
-const AuctionService = require('../services/auction.service');
+const auctionService = require('../services/auction.service');
+const response = require('../utils/response');
+const HTTP = require('../utils/httpStatusCodes');
 
-exports.startPlayer = (io, teamNamespace, state) => {
-  const player = state.players[state.currentPlayerIndex];
-  if (player.status === 'available') {
-    player.status = 'live';
-    player.currentBid = player.basePrice;
-    player.highestBidTeam = null;
-    state.secondsLeft = 30;
-
-    broadcastAll(io, teamNamespace, 'currentPlayer', player);
-    startTimer(io, teamNamespace, state);
+/**
+ * Create auction session
+ */
+exports.createSession = async (req, res) => {
+  try {
+    const result = await auctionService.createSession(req.body);
+    return response.success(res, result.message, result.data, HTTP.CREATED);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
   }
 };
 
-exports.skipPlayer = async (io, teamNamespace, state) => {
-  const player = state.players[state.currentPlayerIndex];
-  player.status = 'skipped';
+/**
+ * Register team for auction
+ */
+exports.registerTeam = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { teamId } = req.body;
 
-  await AuctionService.savePlayerStatus(player); // Save to DB
-
-  broadcastAll(io, teamNamespace, 'playerUpdate', player);
-  nextPlayer(io, teamNamespace, state);
+    const result = await auctionService.registerTeam(sessionId, teamId);
+    return response.success(res, result.message, result.data, HTTP.CREATED);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
 };
 
-exports.sellPlayer = async (io, teamNamespace, state) => {
-  const player = state.players[state.currentPlayerIndex];
-  player.status = 'sold';
+/**
+ * Add player to auction pool
+ */
+exports.addPlayerToPool = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { playerId, basePrice } = req.body;
 
-  const team = state.teams.find(t => t.id === player.highestBidTeam);
-  if (team) {
-    team.budget -= player.currentBid;
-    broadcastAll(io, teamNamespace, 'teamUpdate', team);
-    await AuctionService.updateTeamBudget(team);
+    const result = await auctionService.addPlayerToPool(sessionId, playerId, basePrice);
+    return response.success(res, result.message, result.data, HTTP.CREATED);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
   }
-
-  await AuctionService.savePlayerStatus(player); // Save player as sold
-  broadcastAll(io, teamNamespace, 'playerUpdate', player);
-  nextPlayer(io, teamNamespace, state);
 };
 
-// ⏱️ TIMER LOGIC
-function startTimer(io, teamNamespace, state) {
-  if (state.timer) clearInterval(state.timer);
+/**
+ * Start auction
+ */
+exports.startAuction = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
 
-  state.timer = setInterval(async () => {
-    state.secondsLeft--;
-    broadcastAll(io, teamNamespace, 'timerUpdate', { timeLeft: state.secondsLeft });
-
-    if (state.secondsLeft <= 0) {
-      clearInterval(state.timer);
-
-      const player = state.players[state.currentPlayerIndex];
-
-      if (player.highestBidTeam) {
-        // ✅ Sold case
-        player.status = 'sold';
-        const team = state.teams.find(t => t.id === player.highestBidTeam);
-        if (team) {
-          team.budget -= player.currentBid;
-          broadcastAll(io, teamNamespace, 'teamUpdate', team);
-          await AuctionService.updateTeamBudget(team);
-        }
-      } else {
-      
-        player.status = 'skipped';
-      }
-
-      //await AuctionService.savePlayerStatus(player);
-      broadcastAll(io, teamNamespace, 'playerUpdate', player);
-
-      nextPlayer(io, teamNamespace, state);
-    }
-  }, 1000);
-}
-
-// 👉 Proceed to next player or end
-function nextPlayer(io, teamNamespace, state) {
-  state.currentPlayerIndex++;
-  clearInterval(state.timer);
-
-  if (state.currentPlayerIndex >= state.players.length) {
-    broadcastAll(io, teamNamespace, 'auctionEnd', {});
-    return;
+    const result = await auctionService.startAuction(sessionId);
+    return response.success(res, result.message, result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
   }
+};
 
-  const next = state.players[state.currentPlayerIndex];
-  next.status = 'available';
-  state.secondsLeft = 30;
+/**
+ * Validate bid
+ */
+exports.validateBid = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { teamId, playerId, bidAmount } = req.body;
 
-  broadcastAll(io, teamNamespace, 'currentPlayer', next);
-}
+    const result = await auctionService.validateBid(sessionId, teamId, playerId, bidAmount);
+    return response.success(res, result.message, {});
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
 
-// 🔁 Emit to both admin and team clients
-function broadcastAll(io, teamNamespace, event, data) {
-  io.emit(event, data);             // admin
-  teamNamespace.emit(event, data);  // teams
-}
+/**
+ * Sell player to team
+ */
+exports.sellPlayer = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { playerId, teamId, finalBid } = req.body;
+
+    const result = await auctionService.sellPlayer(sessionId, playerId, teamId, finalBid);
+    return response.success(res, result.message, result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
+ * Mark player as unsold
+ */
+exports.markUnsold = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { playerId } = req.body;
+
+    const result = await auctionService.markUnsold(sessionId, playerId);
+    return response.success(res, result.message, {});
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
+ * Complete auction
+ */
+exports.completeAuction = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const result = await auctionService.completeAuction(sessionId);
+    return response.success(res, result.message, result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
+ * Get auction results
+ */
+exports.getAuctionResults = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const result = await auctionService.getAuctionResults(sessionId);
+    return response.success(res, 'Auction results fetched successfully', result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
+ * Get team's auction dashboard
+ */
+exports.getTeamDashboard = async (req, res) => {
+  try {
+    const { sessionId, teamId } = req.params;
+
+    const result = await auctionService.getTeamDashboard(sessionId, teamId);
+    return response.success(res, 'Team dashboard fetched successfully', result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};

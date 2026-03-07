@@ -2,8 +2,9 @@ const userService = require('../services/user.service');
 const response = require('../utils/response');
 const MSG = require('../utils/messages');
 const HTTP = require('../utils/httpStatusCodes');
+const asyncHandler = require('../utils/asyncHandler');
 
-const handleLogin = async (req, res) => {
+const handleLogin = asyncHandler(async (req, res) => {
 
   const { payload, accessToken, refreshToken } = await userService.handleLogin(req.body);
 
@@ -15,13 +16,11 @@ const handleLogin = async (req, res) => {
   })
 
   response.success(res, MSG.AUTH.LOGIN_SUCCESS, { payload, accessToken });
-}
+});
 
-const handleLogout = async (req, res) => {
-
-  return res.json({ message: 'Logged out' });
-
-}
+const handleLogout = asyncHandler(async (req, res) => {
+  return res.json({ message: MSG.AUTH.LOGOUT_SUCCESS });
+});
 const handleRefreshToken = async (req, res) => {
 
 }

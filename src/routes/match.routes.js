@@ -22,5 +22,13 @@ router.get('/:id/scorecard', matchController.getScorecard);
 router.get('/:id/squads', matchController.getMatchSquads);
 router.post('/:id/squads', matchController.saveMatchSquad);
 
+// NEW Comprehensive Match Management Routes
+router.get('/:id/squad', matchController.getMatchSquad);
+router.post('/:id/squad', matchController.saveMatchSquad);
+router.post('/:id/start', matchController.startMatch);
+router.post('/:id/ball-new', matchController.recordBallNew);
+router.get('/:id/scorecard-full', matchController.generateScorecard);
+router.post('/:id/complete', matchController.completeMatchNew);
+
 module.exports = router;
 

@@ -1,43 +1,46 @@
 const matchService = require('../services/match.service');
 const response = require('../utils/response');
 const HTTP = require('../utils/httpStatusCodes');
+const ApiError = require('../utils/ApiError');
+const MSG = require('../utils/messages');
+const asyncHandler = require('../utils/asyncHandler');
 
-exports.getAllMatches = async (req, res) => {
+exports.getAllMatches = asyncHandler(async (req, res) => {
     const matches = await matchService.getAllMatches(req.query);
-    return response.success(res, 'Matches fetched successfully', { matches });
-};
+    return response.success(res, MSG.MATCHES.FETCH_SUCCESS, { matches });
+});
 
-exports.getMatchById = async (req, res) => {
+exports.getMatchById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const match = await matchService.getMatchById(id);
     if (!match) {
-        return response.success(res, 'Match not found', {}, HTTP.NOT_FOUND);
+        throw new ApiError(HTTP.NOT_FOUND, MSG.MATCHES.NOT_FOUND);
     }
-    return response.success(res, 'Match fetched successfully', { match });
-};
+    return response.success(res, MSG.MATCHES.FETCH_SUCCESS, { match });
+});
 
-exports.createMatch = async (req, res) => {
+exports.createMatch = asyncHandler(async (req, res) => {
     const match = await matchService.createMatch(req.body);
-    return response.success(res, 'Match created successfully', { match }, HTTP.CREATED);
-};
+    return response.success(res, MSG.MATCHES.CREATED, { match }, HTTP.CREATED);
+});
 
-exports.updateMatch = async (req, res) => {
+exports.updateMatch = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const match = await matchService.updateMatch(id, req.body);
     if (!match) {
-        return response.success(res, 'Match not found', {}, HTTP.NOT_FOUND);
+        throw new ApiError(HTTP.NOT_FOUND, MSG.MATCHES.NOT_FOUND);
     }
-    return response.success(res, 'Match updated successfully', { match });
-};
+    return response.success(res, MSG.MATCHES.UPDATED, { match });
+});
 
-exports.deleteMatch = async (req, res) => {
+exports.deleteMatch = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const deleted = await matchService.deleteMatch(id);
     if (!deleted) {
-        return response.success(res, 'Match not found', {}, HTTP.NOT_FOUND);
+        throw new ApiError(HTTP.NOT_FOUND, MSG.MATCHES.NOT_FOUND);
     }
-    return response.success(res, 'Match deleted successfully', { deletedCount: deleted });
-};
+    return response.success(res, MSG.MATCHES.DELETED, { deletedCount: deleted });
+});
 
 exports.getLiveScore = async (req, res) => {
     const { id } = req.params;
@@ -48,32 +51,32 @@ exports.getLiveScore = async (req, res) => {
 /**
  * Record toss
  */
-exports.recordToss = async (req, res) => {
+exports.recordToss = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { tossWinnerId, tossDecision } = req.body;
 
     const match = await matchService.recordToss(id, tossWinnerId, tossDecision);
     return response.success(res, 'Toss recorded successfully', { match });
-};
+});
 
 /**
  * Start an innings
  */
-exports.startInnings = async (req, res) => {
+exports.startInnings = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { inningsNumber } = req.body;
 
     const innings = await matchService.startInnings(id, inningsNumber);
     return response.success(res, 'Innings started successfully', { innings });
-};
+});
 
 /**
  * Record a ball
  */
-exports.recordBall = async (req, res) => {
+exports.recordBall = asyncHandler(async (req, res) => {
     const ball = await matchService.recordBall(req.body);
     return response.success(res, 'Ball recorded successfully', { ball });
-};
+});
 
 /**
  * Undo last ball
@@ -123,11 +126,70 @@ exports.getMatchSquads = async (req, res) => {
 };
 
 /**
- * Save match squad
+ * Save match squad (NEW - Using comprehensive service)
  */
-exports.saveMatchSquad = async (req, res) => {
+exports.saveMatchSquad = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { teamId, playerIds } = req.body;
-    const squad = await matchService.saveMatchSquad(id, teamId, playerIds);
-    return response.success(res, 'Squad saved successfully', { squad });
-};
+    const { teamId, players } = req.body;
+
+    const result = await matchService.saveMatchSquad(id, teamId, players);
+    return response.success(res, result.message, result.data, HTTP.CREATED);
+});
+
+/**
+ * Get match squad (NEW)
+ */
+exports.getMatchSquad = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const result = await matchService.getMatchSquad(id);
+    return response.success(res, 'Squad fetched successfully', result.data);
+});
+
+/**
+ * Start match (NEW)
+ */
+exports.startMatch = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { tossWinnerId, tossDecision } = req.body;
+
+    const result = await matchService.startMatch(id, tossWinnerId, tossDecision);
+    return response.success(res, result.message, result.data);
+});
+
+/**
+ * Record ball (NEW - Comprehensive)
+ */
+exports.recordBallNew = asyncHandler(async (req, res) => {
+    const result = await matchService.recordBall(req.body);
+    return response.success(res, result.message, result.data);
+});
+
+/**
+ * Generate scorecard (NEW)
+ */
+exports.generateScorecard = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const result = await matchService.generateScorecard(id);
+    return response.success(res, 'Scorecard generated successfully', result.data);
+});
+
+/**
+ * Complete match (NEW)
+ */
+exports.completeMatchNew = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { winnerId, resultNote } = req.body;
+
+    const result = await matchService.completeMatch(id, winnerId, resultNote);
+
+    // Update tournament standings if applicable
+    if (result.data.TournamentID) {
+        const tournamentService = require('../services/tournament.service');
+        await tournamentService.updateStandings(id);
+    }
+
+    return response.success(res, result.message, result.data);
+});
+

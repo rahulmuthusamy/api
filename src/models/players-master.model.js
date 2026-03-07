@@ -33,9 +33,30 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     PlayerMaster.associate = (models) => {
+        // Auction relationships
         PlayerMaster.hasMany(models.AuctionPlayer, {
             foreignKey: 'PlayerID',
             as: 'AuctionEntries'
+        });
+
+        // Team relationships (many-to-many through TeamPlayers)
+        PlayerMaster.belongsToMany(models.TeamMaster, {
+            through: 'TeamPlayers',
+            foreignKey: 'PlayerID',
+            otherKey: 'TeamID',
+            as: 'Teams'
+        });
+
+        // Match squad relationships
+        PlayerMaster.hasMany(models.MatchSquad, {
+            foreignKey: 'PlayerID',
+            as: 'MatchSquads'
+        });
+
+        // Match statistics relationships
+        PlayerMaster.hasMany(models.PlayerMatchStats, {
+            foreignKey: 'PlayerID',
+            as: 'MatchStats'
         });
     };
 

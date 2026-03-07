@@ -4,16 +4,16 @@ const { Innings, BallByBall, Match, PlayerMatchStats, TeamMaster, PlayerMaster }
  * Calculate batting strike rate
  */
 exports.calculateStrikeRate = (runs, balls) => {
-    if (balls === 0) return 0;
-    return ((runs / balls) * 100).toFixed(2);
+    if (!balls || balls === 0) return 0;
+    return Number(((runs / balls) * 100).toFixed(2));
 };
 
 /**
  * Calculate bowling economy rate
  */
 exports.calculateEconomy = (runs, overs) => {
-    if (overs === 0) return 0;
-    return (runs / overs).toFixed(2);
+    if (!overs || overs === 0) return 0;
+    return Number((runs / overs).toFixed(2));
 };
 
 /**
@@ -21,10 +21,10 @@ exports.calculateEconomy = (runs, overs) => {
  * NRR = (Total Runs Scored / Total Overs Faced) - (Total Runs Conceded / Total Overs Bowled)
  */
 exports.calculateNetRunRate = (runsScored, oversFaced, runsConceded, oversBowled) => {
-    if (oversFaced === 0 || oversBowled === 0) return 0;
+    if (!oversFaced || !oversBowled || oversFaced === 0 || oversBowled === 0) return 0;
     const runRate = runsScored / oversFaced;
     const concededRate = runsConceded / oversBowled;
-    return (runRate - concededRate).toFixed(3);
+    return Number((runRate - concededRate).toFixed(3));
 };
 
 /**
@@ -49,7 +49,7 @@ exports.ballsToOvers = (balls) => {
  * Record a ball in the match
  */
 exports.recordBall = async (ballData) => {
-    const {
+    let {
         inningsId,
         matchId,
         overNumber,
@@ -67,6 +67,16 @@ exports.recordBall = async (ballData) => {
         extraRuns = 0,
         commentary = ''
     } = ballData;
+
+    // Force strict number types to avoid string concatenation
+    runsScored = Number(runsScored);
+    extraRuns = Number(extraRuns);
+    matchId = Number(matchId);
+    inningsId = Number(inningsId);
+    batsmanId = Number(batsmanId);
+    bowlerId = Number(bowlerId);
+
+    console.log(`🏏 ScoringService: Recording ball [${overNumber}.${ballNumber}] Runs: ${runsScored} Extra: ${extraRuns}`);
 
     // Get current innings state
     const innings = await Innings.findByPk(inningsId);
@@ -125,6 +135,12 @@ exports.recordBall = async (ballData) => {
         TotalWickets: newTeamWickets
     };
 
+    // Auto-complete innings if all out (10 wickets)
+    if (newTeamWickets >= 10) {
+        updateData.IsCompleted = true;
+        updateData.IsAllOut = true;
+    }
+
     if (isLegalDelivery) {
         updateData.TotalBalls = innings.TotalBalls + 1;
         updateData.TotalOvers = exports.ballsToOvers(innings.TotalBalls + 1);
@@ -140,7 +156,7 @@ exports.recordBall = async (ballData) => {
 
     // Calculate run rate
     if (updateData.TotalOvers > 0) {
-        updateData.RunRate = (newTeamScore / updateData.TotalOvers).toFixed(2);
+        updateData.RunRate = Number((newTeamScore / updateData.TotalOvers).toFixed(2));
     }
 
     // Calculate required run rate for 2nd innings
@@ -149,13 +165,13 @@ exports.recordBall = async (ballData) => {
         const remainingRuns = innings.TargetScore - newTeamScore;
         const remainingOvers = match.OversPerSide - updateData.TotalOvers;
         if (remainingOvers > 0) {
-            updateData.RequiredRunRate = (remainingRuns / remainingOvers).toFixed(2);
+            updateData.RequiredRunRate = Number((remainingRuns / remainingOvers).toFixed(2));
         }
     }
 
     await innings.update(updateData);
 
-    await updatePlayerStats(matchId, batsmanId, bowlerId, { ...ballData, isLegalDelivery });
+    await updatePlayerStats(matchId, batsmanId, bowlerId, { ...ballData, isLegalDelivery }, innings.BattingTeamID, innings.BowlingTeamID);
 
     return ball;
 };
@@ -202,7 +218,7 @@ exports.undoLastBall = async (matchId) => {
 
     // Recalculate RR
     if (updateData.TotalOvers > 0) {
-        updateData.RunRate = (updateData.TotalRuns / updateData.TotalOvers).toFixed(2);
+        updateData.RunRate = Number((updateData.TotalRuns / updateData.TotalOvers).toFixed(2));
     } else {
         updateData.RunRate = 0;
     }
@@ -230,9 +246,20 @@ exports.undoLastBall = async (matchId) => {
         // If this ball was the batsman's dismissal, revert IsOut
         if (lastBall.IsWicket && lastBall.DismissedPlayerID === lastBall.BatsmanID) {
             bUpdate.IsOut = false;
+            bUpdate.HowOut = null;
         }
 
         await batsmanStats.update(bUpdate);
+    }
+
+    // If dismissed player was NOT the primary batsman of the ball (e.g. Run Out at non-striker end)
+    if (lastBall.IsWicket && lastBall.DismissedPlayerID && lastBall.DismissedPlayerID !== lastBall.BatsmanID) {
+        const dismissedStats = await PlayerMatchStats.findOne({
+            where: { MatchID: matchId, PlayerID: lastBall.DismissedPlayerID }
+        });
+        if (dismissedStats) {
+            await dismissedStats.update({ IsOut: false, HowOut: null });
+        }
     }
 
     // Bowler
@@ -263,21 +290,47 @@ exports.undoLastBall = async (matchId) => {
         await bowlerStats.update(wUpdate);
     }
 
-    // 4. Update Innings and Delete Ball
+    // 4. Revert Fielder Stats
+    if (lastBall.IsWicket && lastBall.FielderID) {
+        const fielderStats = await PlayerMatchStats.findOne({
+            where: { MatchID: matchId, PlayerID: lastBall.FielderID }
+        });
+        if (fielderStats) {
+            if (lastBall.WicketType === 'Caught') await fielderStats.decrement('Catches');
+            if (lastBall.WicketType === 'Stumped') await fielderStats.decrement('Stumpings');
+            if (lastBall.WicketType === 'RunOut') await fielderStats.decrement('RunOuts');
+        }
+    }
+
+    // 5. Update Innings and Delete Ball
     await innings.update(updateData);
     await lastBall.destroy();
 
     return { success: true, undoneBall: lastBall };
-};
+}
 
 /**
  * Update player statistics after a ball
  */
-async function updatePlayerStats(matchId, batsmanId, bowlerId, ballData) {
+async function updatePlayerStats(matchId, batsmanId, bowlerId, ballData, battingTeamId, bowlingTeamId) {
     const { runsScored, isWicket, isExtra, extraType, boundaryType, wicketType, dismissedPlayerId, fielderId } = ballData;
 
     // 1. Update/Create Batsman Stats
     let batsmanStats = await PlayerMatchStats.findOne({ where: { MatchID: matchId, PlayerID: batsmanId } });
+    if (!batsmanStats) {
+        batsmanStats = await PlayerMatchStats.create({
+            MatchID: matchId,
+            PlayerID: batsmanId,
+            TeamID: battingTeamId,
+            RunsScored: 0,
+            BallsFaced: 0,
+            Fours: 0,
+            Sixes: 0,
+            StrikeRate: 0,
+            IsOut: false
+        });
+    }
+
     if (batsmanStats) {
         const bUpdate = {
             RunsScored: batsmanStats.RunsScored + runsScored,
@@ -292,12 +345,25 @@ async function updatePlayerStats(matchId, batsmanId, bowlerId, ballData) {
     // 2. Handle Wicket (Dismissed Player & Fielder)
     if (isWicket && dismissedPlayerId) {
         let dismissedStats = await PlayerMatchStats.findOne({ where: { MatchID: matchId, PlayerID: dismissedPlayerId } });
+        // NOTE: If dismissed player has no stats yet (e.g. Diamond Duck), we must create them.
+        // Assuming dismissed player is from Batting Team.
+        if (!dismissedStats) {
+            dismissedStats = await PlayerMatchStats.create({
+                MatchID: matchId,
+                PlayerID: dismissedPlayerId,
+                TeamID: battingTeamId,
+                RunsScored: 0,
+                BallsFaced: 0,
+                IsOut: false
+            });
+        }
+
         if (dismissedStats) {
             let howOutStr = 'out';
             const bowler = await PlayerMaster.findByPk(bowlerId);
             const fielder = fielderId ? await PlayerMaster.findByPk(fielderId) : null;
-            const bowlerName = bowler ? bowler.LastName : 'Bowler';
-            const fielderName = fielder ? fielder.LastName : 'Fielder';
+            const bowlerName = bowler ? bowler.Name : 'Bowler';
+            const fielderName = fielder ? fielder.Name : 'Fielder';
 
             switch (wicketType) {
                 case 'Bowled': howOutStr = `b ${bowlerName}`; break;
@@ -311,9 +377,19 @@ async function updatePlayerStats(matchId, batsmanId, bowlerId, ballData) {
             await dismissedStats.update({ IsOut: true, HowOut: howOutStr });
         }
 
-        // Credit Fielder
+        // Credit Fielder (TeamID is Bowling Team)
         if (fielderId) {
             let fielderStats = await PlayerMatchStats.findOne({ where: { MatchID: matchId, PlayerID: fielderId } });
+            if (!fielderStats) {
+                fielderStats = await PlayerMatchStats.create({
+                    MatchID: matchId,
+                    PlayerID: fielderId,
+                    TeamID: bowlingTeamId,
+                    RunsScored: 0,
+                    BallsFaced: 0
+                });
+            }
+
             if (fielderStats) {
                 if (wicketType === 'Caught') await fielderStats.increment('Catches');
                 if (wicketType === 'Stumped') await fielderStats.increment('Stumpings');
@@ -324,6 +400,19 @@ async function updatePlayerStats(matchId, batsmanId, bowlerId, ballData) {
 
     // 3. Update Bowler Stats
     let bowlerStats = await PlayerMatchStats.findOne({ where: { MatchID: matchId, PlayerID: bowlerId } });
+    if (!bowlerStats) {
+        bowlerStats = await PlayerMatchStats.create({
+            MatchID: matchId,
+            PlayerID: bowlerId,
+            TeamID: bowlingTeamId,
+            RunsConceded: 0,
+            BallsBowled: 0,
+            WicketsTaken: 0,
+            OversBowled: 0,
+            Economy: 0
+        });
+    }
+
     if (bowlerStats) {
         const runsToSubtractFromBowler = runsScored + (isExtra && extraType !== 'Bye' && extraType !== 'LegBye' ? ballData.extraRuns : 0);
         const wUpdate = {

@@ -53,11 +53,44 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     TeamMaster.associate = function (models) {
+        // Auction relationships
         TeamMaster.hasMany(models.AuctionTeam, {
             foreignKey: 'TeamID',
             as: 'AuctionTeams'
         });
-        // Add association with TournamentTeams if needed
+        
+        // Player relationships (many-to-many through TeamPlayers)
+        TeamMaster.belongsToMany(models.PlayerMaster, {
+            through: 'TeamPlayers',
+            foreignKey: 'TeamID',
+            otherKey: 'PlayerID',
+            as: 'Players'
+        });
+        
+        // Tournament relationships (many-to-many through TournamentTeams)
+        TeamMaster.belongsToMany(models.Tournament, {
+            through: 'TournamentTeams',
+            foreignKey: 'TeamID',
+            otherKey: 'TournamentID',
+            as: 'Tournaments'
+        });
+        
+        // Match relationships
+        TeamMaster.hasMany(models.Match, {
+            foreignKey: 'TeamA_ID',
+            as: 'HomeMatches'
+        });
+        
+        TeamMaster.hasMany(models.Match, {
+            foreignKey: 'TeamB_ID',
+            as: 'AwayMatches'
+        });
+        
+        // Squad relationships
+        TeamMaster.hasMany(models.MatchSquad, {
+            foreignKey: 'TeamID',
+            as: 'MatchSquads'
+        });
     };
 
     return TeamMaster;

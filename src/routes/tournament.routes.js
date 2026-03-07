@@ -26,5 +26,12 @@ router.get('/:id/standings', tournamentController.getStandings);
 router.get('/:id/stats', tournamentController.getTournamentStats);
 router.get('/:tournamentId/points-table', tournamentController.getPointsTable);
 
+// NEW Comprehensive Tournament Management Routes
+router.post('/:id/register-team', tournamentController.registerTeam);
+router.get('/:id/standings-new', tournamentController.getStandingsNew);
+router.get('/:id/registered-teams', tournamentController.getRegisteredTeams);
+router.get('/:id/matches', tournamentController.getTournamentMatches);
+router.post('/:id/generate-fixtures', tournamentController.generateFixturesNew);
+
 module.exports = router;
 

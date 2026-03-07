@@ -62,6 +62,11 @@ router.use('/polls', pollRoutes);
 router.use('/tournaments', tournamentRoutes);
 router.use('/matches', matchRoutes);
 
+// NEW Comprehensive Auction Routes
+const auctionRoutes = require('./auction.routes');
+router.use('/auction', auctionRoutes);
+
+
 const controllers = require('../controllers/sample.controller')
 
 router.use('/generate-form-schema', controllers.generateFormSchemaController)

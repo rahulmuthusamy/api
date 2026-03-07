@@ -21,10 +21,22 @@ const logger = createLogger({
     }),
   ],
   exceptionHandlers: [
-    new transports.File({ filename: 'logs/exceptions.log' })
+    new transports.File({ filename: 'logs/exceptions.log' }),
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.simple()
+      )
+    })
   ],
   rejectionHandlers: [
-    new transports.File({ filename: 'logs/rejections.log' })
+    new transports.File({ filename: 'logs/rejections.log' }),
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.simple()
+      )
+    })
   ]
 });
 

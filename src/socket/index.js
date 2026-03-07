@@ -2,6 +2,10 @@ const auctionAdmin = require('./namespaces/auction.admin');
 const auctionTeam = require('./namespaces/auction.team');
 const { AuctionPlayer, AuctionTeam } = require('../models');
 
+// NEW: Import comprehensive handlers
+const auctionHandler = require('./handlers/auction.handler');
+const scoringHandler = require('./handlers/scoring.handler');
+
 const sessionStates = {}; // Store state for each sessionId
 
 module.exports = function initializeSockets(io) {
@@ -44,6 +48,32 @@ module.exports = function initializeSockets(io) {
             auctionTeam(socket, sessionStates[sessionId]);
         });
     });
+
+    // NEW: Comprehensive Auction Handler
+    const auctionNamespace = io.of('/auction');
+    auctionNamespace.on('connection', (socket) => {
+        console.log('🎯 Comprehensive auction socket connected:', socket.id);
+
+        socket.on('join-auction', async (sessionId) => {
+            console.log(`Client joined auction session: ${sessionId}`);
+
+            if (!sessionStates[sessionId]) {
+                const state = await loadAuctionState(sessionId);
+                sessionStates[sessionId] = { ...state, sessionId };
+            }
+
+            auctionHandler(socket, sessionStates[sessionId]);
+        });
+    });
+
+    // NEW: Live Scoring Handler
+    scoringHandler(io);
+
+    // NEW: Broadcast Handler (WebRTC signaling for live cameras)
+    const broadcastHandler = require('./handlers/broadcast.handler');
+    broadcastHandler(io);
+
+    console.log('✅ All Socket.IO handlers initialized');
 };
 
 /**
@@ -91,3 +121,4 @@ async function loadAuctionState(sessionId) {
         secondsLeft: 30
     };
 }
+

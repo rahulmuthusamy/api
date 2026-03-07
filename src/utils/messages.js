@@ -21,6 +21,7 @@ module.exports = {
   PLAYERS: buildMessages('Player',
     { EXISTING_RECORD: 'Player already exists with this mobile number' }),
   AUCTIONSESSION: buildMessages('Auction Session'),
+  MATCHES: buildMessages('Match'),
 
   AUTH: {
     LOGIN_SUCCESS: 'Login successful',

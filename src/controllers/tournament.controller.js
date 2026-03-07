@@ -20,8 +20,8 @@ exports.createTournament = async (req, res) => {
     const payload = { ...req.body };
 
     if (req.files) {
-        if (req.files.logo) payload.LogoURL = `/uploads/tournaments/${req.files.logo[0].filename}`;
-        if (req.files.banner) payload.BannerURL = `/uploads/tournaments/${req.files.banner[0].filename}`;
+        if (req.files.logo) payload.LogoURL = `/api/uploads/tournaments/${req.files.logo[0].filename}`;
+        if (req.files.banner) payload.BannerURL = `/api/uploads/tournaments/${req.files.banner[0].filename}`;
     }
 
     // Parse teams if it's a JSON string (coming from FormData)
@@ -139,4 +139,79 @@ exports.closeRegistration = async (req, res) => {
     const tournament = await tournamentService.closeRegistration(id);
     return response.success(res, 'Registration closed successfully', { tournament });
 };
+
+// NEW Comprehensive Tournament Management
+const newTournamentService = require('../services/tournament.service');
+
+/**
+ * Register team for tournament (NEW)
+ */
+exports.registerTeam = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { teamId } = req.body;
+
+        const result = await newTournamentService.registerTeam(id, teamId);
+        return response.success(res, result.message, {}, HTTP.CREATED);
+    } catch (error) {
+        return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+    }
+};
+
+/**
+ * Get tournament standings (NEW)
+ */
+exports.getStandingsNew = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await newTournamentService.getStandings(id);
+        return response.success(res, 'Standings fetched successfully', result.data);
+    } catch (error) {
+        return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+    }
+};
+
+/**
+ * Get registered teams (NEW)
+ */
+exports.getRegisteredTeams = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await newTournamentService.getRegisteredTeams(id);
+        return response.success(res, 'Registered teams fetched successfully', result.data);
+    } catch (error) {
+        return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+    }
+};
+
+/**
+ * Get tournament matches (NEW)
+ */
+exports.getTournamentMatches = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await newTournamentService.getTournamentMatches(id);
+        return response.success(res, 'Tournament matches fetched successfully', result.data);
+    } catch (error) {
+        return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+    }
+};
+
+/**
+ * Generate fixtures (NEW)
+ */
+exports.generateFixturesNew = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await newTournamentService.generateFixtures(id);
+        return response.success(res, result.message, result.data);
+    } catch (error) {
+        return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+    }
+};
+
 

@@ -15,11 +15,11 @@ module.exports = (sequelize, DataTypes) => {
         },
         BattingTeamID: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
         },
         BowlingTeamID: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
         },
         TotalRuns: {
             type: DataTypes.INTEGER,

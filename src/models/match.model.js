@@ -9,11 +9,11 @@ module.exports = (sequelize, DataTypes) => {
         MatchNumber: DataTypes.INTEGER,
         TeamA_ID: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
         },
         TeamB_ID: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
         },
         MatchDate: DataTypes.DATE,
         Venue: DataTypes.STRING,
