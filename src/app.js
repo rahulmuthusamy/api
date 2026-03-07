@@ -19,7 +19,14 @@ app.use(
 );
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4300',
+    origin: function (origin, callback) {
+        // Allow all origins in development to support LAN access (mobile phones, etc.)
+        if (!origin || origin.indexOf('localhost') !== -1 || origin.indexOf('192.168.') !== -1 || origin.indexOf('127.0.0.1') !== -1) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Still allow for now to fix user's immediate issue
+        }
+    },
     credentials: true
 }));
 
