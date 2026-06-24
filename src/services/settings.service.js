@@ -1,10 +1,11 @@
-const { Gallery, Carousel, Sponsor, AppSetting } = require('../models');
+const { Gallery, Carousel, Sponsor, AppSetting, LocationMaster } = require('../models');
 const BaseService = require('./base.service');
 
 const galleryService = new BaseService(Gallery);
 const carouselService = new BaseService(Carousel);
 const sponsorService = new BaseService(Sponsor);
 const appSettingsService = new BaseService(AppSetting);
+const locationService = new BaseService(LocationMaster);
 
 
 // Gallery Services
@@ -79,3 +80,25 @@ exports.updateAppSettings = async (data) => {
     }
     return await settings.update(data);
 };
+
+// Location Master Services
+exports.getAllLocations = async () => {
+    return await locationService.getAll({ order: [['SortOrder', 'ASC'], ['Name', 'ASC']] });
+};
+
+exports.getActiveLocations = async () => {
+    return await locationService.getAll({ where: { IsActive: true }, order: [['SortOrder', 'ASC'], ['Name', 'ASC']] });
+};
+
+exports.createLocation = async (data) => {
+    return await locationService.create(data);
+};
+
+exports.updateLocation = async (id, data) => {
+    return await locationService.update(id, data);
+};
+
+exports.deleteLocation = async (id) => {
+    return await locationService.delete(id);
+};
+

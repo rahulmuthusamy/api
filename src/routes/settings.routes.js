@@ -31,4 +31,11 @@ router.post('/sponsors', uploadSponsorLogo.single('file'), asyncHandler(controll
 router.put('/sponsors/:id', uploadSponsorLogo.single('file'), asyncHandler(controller.updateSponsor));
 router.delete('/sponsors/:id', asyncHandler(controller.deleteSponsor));
 
+// Location Master
+router.get('/locations', asyncHandler(controller.getLocations));
+router.post('/locations', asyncHandler(controller.createLocation));
+router.put('/locations/:id', asyncHandler(controller.updateLocation));
+router.delete('/locations/:id', asyncHandler(controller.deleteLocation));
+
 module.exports = router;
+

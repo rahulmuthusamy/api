@@ -117,3 +117,30 @@ exports.updateAppSettings = async (req, res) => {
     const data = await settingsService.updateAppSettings(payload);
     return response.success(res, "App settings updated successfully", { settings: data });
 };
+
+// Location Master Controllers
+exports.getLocations = async (req, res) => {
+    const activeOnly = req.query.active === 'true';
+    const data = activeOnly
+        ? await settingsService.getActiveLocations()
+        : await settingsService.getAllLocations();
+    return response.success(res, "Locations fetched successfully", { locations: data });
+};
+
+exports.createLocation = async (req, res) => {
+    const data = await settingsService.createLocation(req.body);
+    return response.success(res, "Location added successfully", { location: data }, HTTP.CREATED);
+};
+
+exports.updateLocation = async (req, res) => {
+    const data = await settingsService.updateLocation(req.params.id, req.body);
+    if (!data) return response.error(res, { message: "Location not found" }, HTTP.NOT_FOUND);
+    return response.success(res, "Location updated successfully", { location: data });
+};
+
+exports.deleteLocation = async (req, res) => {
+    const success = await settingsService.deleteLocation(req.params.id);
+    if (!success) return response.error(res, { message: "Location not found" }, HTTP.NOT_FOUND);
+    return response.success(res, "Location deleted successfully");
+};
+
