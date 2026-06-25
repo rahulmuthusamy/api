@@ -250,6 +250,51 @@
           "default": {
             "description": ""
           }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "playerName": {
+                    "example": "any"
+                  },
+                  "fatherName": {
+                    "example": "any"
+                  },
+                  "contactNumber": {
+                    "example": "any"
+                  },
+                  "role": {
+                    "example": "any"
+                  },
+                  "battingStyle": {
+                    "example": "any"
+                  },
+                  "bowlingStyle": {
+                    "example": "any"
+                  },
+                  "basePrice": {
+                    "example": "any"
+                  },
+                  "sessionId": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/onboarding/public/register-player": {
+      "post": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
         }
       }
     },
@@ -296,19 +341,24 @@
           "default": {
             "description": ""
           }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "example": "any"
-                  }
-                }
-              }
+        }
+      }
+    },
+    "/onboarding/owner/dashboard": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
             }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
           }
         }
       }
@@ -856,6 +906,62 @@
       }
     },
     "/settings/sponsors/{id}": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/settings/locations": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/settings/locations/{id}": {
       "put": {
         "description": "",
         "parameters": [
@@ -2096,6 +2202,26 @@
       }
     },
     "/auction/sessions/{sessionId}/results": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/auction/sessions/{sessionId}/registered-teams": {
       "get": {
         "description": "",
         "parameters": [

@@ -1,5 +1,5 @@
 const BaseService = require('./base.service');
-const { Tournament, TournamentTeam, TournamentStandings, Match, TeamMaster } = require('../models');
+const { Tournament, TournamentTeam, TournamentStandings, Match, TeamMaster, AuctionSession, MatchSquad, PlayerMatchStats, BallByBall, Innings } = require('../models');
 const { Op } = require('sequelize');
 
 class TournamentService extends BaseService {
@@ -143,7 +143,36 @@ class TournamentService extends BaseService {
     }
 
     async deleteTournament(id) {
-        return this.delete(id);
+        const transaction = await this.model.sequelize.transaction();
+        try {
+            // Find dependent matches
+            const matches = await Match.findAll({ where: { TournamentID: id }, transaction, attributes: ['MatchID'] });
+            const matchIds = matches.map(m => m.MatchID);
+
+            // Deep clean match dependencies if any exist
+            if (matchIds.length > 0) {
+                if (typeof MatchSquad !== 'undefined') await MatchSquad.destroy({ where: { MatchID: { [Op.in]: matchIds } }, transaction });
+                if (typeof PlayerMatchStats !== 'undefined') await PlayerMatchStats.destroy({ where: { MatchID: { [Op.in]: matchIds } }, transaction });
+                if (typeof BallByBall !== 'undefined') await BallByBall.destroy({ where: { MatchID: { [Op.in]: matchIds } }, transaction });
+                if (typeof Innings !== 'undefined') await Innings.destroy({ where: { MatchID: { [Op.in]: matchIds } }, transaction });
+            }
+
+            // Clean direct dependencies
+            if (typeof TournamentTeam !== 'undefined') await TournamentTeam.destroy({ where: { TournamentID: id }, transaction });
+            if (typeof TournamentStandings !== 'undefined') await TournamentStandings.destroy({ where: { TournamentID: id }, transaction });
+            if (typeof AuctionSession !== 'undefined') await AuctionSession.destroy({ where: { TournamentID: id }, transaction });
+            
+            // Wipe matches
+            await Match.destroy({ where: { TournamentID: id }, transaction });
+
+            // Finally, delete the tournament
+            const deletedCount = await Tournament.destroy({ where: { TournamentID: id }, transaction });
+            await transaction.commit();
+            return deletedCount;
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
     }
 
     async withdrawTeam(tournamentId, teamId) {

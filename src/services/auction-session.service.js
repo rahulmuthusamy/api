@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { AuctionSession, AuctionTeam, TeamMaster, Tournament, TournamentTeam } = require('../models');
+const { AuctionSession, AuctionTeam, TeamMaster, Tournament, TournamentTeam, AuctionPlayer, AuctionBid, AuctionLog } = require('../models');
 const BaseService = require('./base.service');
 
 const service = new BaseService(AuctionSession);
@@ -73,7 +73,20 @@ const updateAuctionSession = async (id, data) => {
 };
 
 const deleteAuctionSession = async (id) => {
-    return await service.delete(id);
+    const transaction = await AuctionSession.sequelize.transaction();
+    try {
+        if (typeof AuctionTeam !== 'undefined') await AuctionTeam.destroy({ where: { SessionID: id }, transaction });
+        if (typeof AuctionPlayer !== 'undefined') await AuctionPlayer.destroy({ where: { SessionID: id }, transaction });
+        if (typeof AuctionBid !== 'undefined') await AuctionBid.destroy({ where: { SessionID: id }, transaction });
+        if (typeof AuctionLog !== 'undefined') await AuctionLog.destroy({ where: { SessionID: id }, transaction });
+
+        const deletedCount = await AuctionSession.destroy({ where: { SessionID: id }, transaction });
+        await transaction.commit();
+        return deletedCount;
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
 };
 
 module.exports = {
