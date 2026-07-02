@@ -272,7 +272,7 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
 /**
  * Public Player Registration for an Auction Session
  */
-const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, basePrice, sessionId, photoFile) => {
+const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile) => {
     const { AuctionPlayer } = require('../models');
     const normalizedPhone = String(contactNumber || '').trim();
 
@@ -311,6 +311,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
             Role: role || 'Batsman',
             BattingStyle: battingStyle || 'Right-hand bat',
             BowlingStyle: bowlingStyle || 'Right-arm medium',
+            JerseySize: jerseySize || 'M',
             PhotoURL: photoUrl,
             Status: 'active' // auto-active for simplicity
         });
@@ -322,6 +323,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         player.Role = player.Role || role || 'Batsman';
         player.BattingStyle = player.BattingStyle || battingStyle || 'Right-hand bat';
         player.BowlingStyle = player.BowlingStyle || bowlingStyle || 'Right-arm medium';
+        player.JerseySize = jerseySize || player.JerseySize || 'M';
         if (photoUrl) {
             player.PhotoURL = photoUrl;
         }
