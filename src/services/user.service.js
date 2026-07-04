@@ -1,6 +1,15 @@
 const { User, Owner, PlayerMaster, Member } = require('../models');
 const bcrypt = require('bcryptjs');
-const { generateAccessToken, generateRefreshToken, verifyAccessToken } = require('../utils/jwt');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
+
+const buildPayload = (user) => ({
+    userId: user.UserID,
+    email: user.Email,
+    role: user.Role,
+    ownerProfile: user.OwnerProfile || null,
+    memberProfile: user.MemberProfile || null,
+    playerProfile: user.PlayerProfile || null
+});
 
 /**
  * Handle user registration
@@ -153,14 +162,7 @@ const handleLogin = async (credentials) => {
         user.MemberProfile = memberProfile;
     }
 
-    const payload = {
-        userId: user.UserID,
-        email: user.Email,
-        role: user.Role,
-        ownerProfile: user.OwnerProfile || null,
-        memberProfile: user.MemberProfile || null
-    };
-
+    const payload = buildPayload(user);
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -172,11 +174,12 @@ const handleLogin = async (credentials) => {
  */
 const handleRefreshToken = async (token) => {
     try {
-        const decoded = verifyAccessToken(token);
-        const user = await User.findByPk(decoded.userId, {
+        const decoded = verifyRefreshToken(token);
+        let user = await User.findByPk(decoded.userId, {
             include: [
                 { model: Owner, as: 'OwnerProfile' },
-                { model: Member, as: 'MemberProfile' }
+                { model: Member, as: 'MemberProfile' },
+                { model: PlayerMaster, as: 'PlayerProfile' }
             ]
         });
         
@@ -184,14 +187,24 @@ const handleRefreshToken = async (token) => {
             throw new Error('User not found');
         }
 
-        const payload = {
-            userId: user.UserID,
-            email: user.Email,
-            role: user.Role,
-            ownerProfile: user.OwnerProfile || null,
-            memberProfile: user.MemberProfile || null
-        };
+        // Re-check approval status on refresh
+        if (user.Role === 'owner') {
+            const ownerProfile = await Owner.findOne({ where: { UserID: user.UserID } });
+            if (!ownerProfile || ownerProfile.VerificationStatus !== 'approved') {
+                throw new Error('Account no longer active.');
+            }
+            user.OwnerProfile = ownerProfile;
+        }
 
+        if (user.Role === 'member') {
+            const memberProfile = await Member.findOne({ where: { UserID: user.UserID } });
+            if (!memberProfile || memberProfile.VerificationStatus !== 'approved') {
+                throw new Error('Account no longer active.');
+            }
+            user.MemberProfile = memberProfile;
+        }
+
+        const payload = buildPayload(user);
         const accessToken = generateAccessToken(payload);
         return { accessToken, user: payload };
     } catch (error) {
