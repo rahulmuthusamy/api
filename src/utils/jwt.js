@@ -15,3 +15,7 @@ exports.generateRefreshToken = (payload) => {
 exports.verifyAccessToken = (token) => {
     return jwt.verify(token, JWT_SECRET);
 };
+
+exports.verifyRefreshToken = (token) => {
+    return jwt.verify(token, JWT_SECRET);
+};

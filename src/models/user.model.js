@@ -28,6 +28,7 @@ module.exports = (sequelize, DataTypes) => {
     User.associate = (models) => {
         User.hasOne(models.Owner, { foreignKey: 'UserID', as: 'OwnerProfile' });
         User.hasOne(models.Member, { foreignKey: 'UserID', as: 'MemberProfile' });
+        User.hasOne(models.PlayerMaster, { foreignKey: 'UserID', as: 'PlayerProfile' });
     };
 
     return User;

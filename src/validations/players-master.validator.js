@@ -13,15 +13,14 @@ exports.createPlayerValidator = [
         .notEmpty().withMessage('Father name is required'),
 
     body('Email')
+        .optional()
         .isEmail().withMessage('Invalid email format'),
 
     body('DOB')
-        .notEmpty().withMessage('Date of birth is required')
-        .isISO8601().withMessage('Invalid date of birth'),
+        .notEmpty().withMessage('Date of birth is required'),
 
     body('Address')
-        .notEmpty().withMessage('Address is required'),
-
+        .optional(),
     body('Role')
         .notEmpty().withMessage('Role is required')
         .isLength({ min: 2 }).withMessage('Role must be at least 2 characters'),
@@ -31,6 +30,7 @@ exports.createPlayerValidator = [
 
 
     body('EmergencyContact')
+        .optional()
         .isMobilePhone().withMessage('Invalid emergency contact'),
 
     // body('PhotoURL')
