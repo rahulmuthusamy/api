@@ -27,7 +27,8 @@ module.exports = (sequelize, DataTypes) => {
         Bio: { type: DataTypes.TEXT, allowNull: true },
         Nickname: { type: DataTypes.STRING, allowNull: true },
         EmergencyContact: { type: DataTypes.STRING, allowNull: true },
-        UserID: { type: DataTypes.INTEGER, allowNull: true }
+        UserID: { type: DataTypes.INTEGER, allowNull: true },
+        QRCodeUrl: { type: DataTypes.STRING, allowNull: true }
     }, {
         tableName: 'PlayerMasters',
         timestamps: true,

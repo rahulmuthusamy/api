@@ -33,6 +33,19 @@ module.exports = (sequelize, DataTypes) => {
                 key: 'TournamentID'
             }
         },
+        PlayerRegistrationFee: {
+            type: DataTypes.DECIMAL(15, 2),
+            allowNull: true,
+            defaultValue: 0
+        },
+        OwnerRegistrationFee: {
+            type: DataTypes.DECIMAL(15, 2),
+            allowNull: true,
+            defaultValue: 0
+        },
+        UPIScannerImageURL: DataTypes.STRING,
+        UPIName: DataTypes.STRING,
+        UPIId: DataTypes.STRING,
         Notes: DataTypes.STRING,
         StartDate: DataTypes.DATE,
         EndDate: DataTypes.DATE,

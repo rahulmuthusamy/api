@@ -72,13 +72,20 @@ exports.registerTeam = asyncHandler(async (req, res) => {
         return response.error(res, { message: 'Missing required fields' }, HTTP.BAD_REQUEST);
     }
     
-    if (!req.file || !transactionId) {
+    let receiptFile = null;
+    let qrCodeFile = null;
+    if (req.files) {
+        if (req.files.receipt) receiptFile = req.files.receipt[0];
+        if (req.files.qrCodeFile) qrCodeFile = req.files.qrCodeFile[0];
+    }
+    
+    if (!receiptFile || !transactionId) {
         return response.error(res, { message: 'Payment screenshot and Transaction ID are required' }, HTTP.BAD_REQUEST);
     }
     
     const result = await onboardingService.registerTeam(
         ownerName, contactNumber, password, teamName, location, slogan, sessionId, 
-        transactionId, notes, req.file
+        transactionId, notes, receiptFile, qrCodeFile
     );
     response.success(res, 'Team registered successfully.', result, HTTP.CREATED);
 });
@@ -87,13 +94,26 @@ exports.registerTeam = asyncHandler(async (req, res) => {
  * Public endpoint for Player auction registration
  */
 exports.registerPlayerForAuction = asyncHandler(async (req, res) => {
-    const { playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId } = req.body;
+    const { playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, transactionId } = req.body;
     
     if (!playerName || !fatherName || !contactNumber || !sessionId) {
         return response.error(res, { message: 'Missing required fields (playerName, fatherName, contactNumber, sessionId)' }, HTTP.BAD_REQUEST);
     }
     
-    const result = await onboardingService.registerPlayerForAuction(playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, req.file);
+    // Check if receipt file is provided if there's a transaction ID
+    let photoFile = null;
+    let receiptFile = null;
+    let qrCodeFile = null;
+    if (req.files) {
+        if (req.files.photo) photoFile = req.files.photo[0];
+        if (req.files.receipt) receiptFile = req.files.receipt[0];
+        if (req.files.qrCodeFile) qrCodeFile = req.files.qrCodeFile[0];
+    } else if (req.file) {
+        // Fallback for single file upload (assuming it's photo)
+        photoFile = req.file;
+    }
+
+    const result = await onboardingService.registerPlayerForAuction(playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile);
     response.success(res, 'Player registered for auction successfully.', result, HTTP.CREATED);
 });
 
@@ -113,6 +133,24 @@ exports.verifyOwner = asyncHandler(async (req, res) => {
     const { status } = req.body;
     const result = await onboardingService.verifyOwner(ownerId, status);
     response.success(res, `Owner registration ${status} successfully`, result);
+});
+
+/**
+ * Admin views pending auction players
+ */
+exports.getPendingAuctionPlayers = asyncHandler(async (req, res) => {
+    const result = await onboardingService.getPendingAuctionPlayers();
+    response.success(res, 'Pending auction players fetched successfully', result);
+});
+
+/**
+ * Admin approves/rejects auction player registration
+ */
+exports.verifyAuctionPlayer = asyncHandler(async (req, res) => {
+    const { auctionPlayerId } = req.params;
+    const { status } = req.body;
+    const result = await onboardingService.verifyAuctionPlayer(auctionPlayerId, status);
+    response.success(res, `Auction player registration ${status} successfully`, result);
 });
 
 exports.getOwnerDashboard = asyncHandler(async (req, res) => {

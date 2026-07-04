@@ -36,6 +36,11 @@ exports.getUpcomingSessions = async (req, res) => {
       StartDate: s.StartDate,
       EndDate: s.EndDate,
       Notes: s.Notes,
+      PlayerRegistrationFee: s.PlayerRegistrationFee,
+      OwnerRegistrationFee: s.OwnerRegistrationFee,
+      UPIScannerImageURL: s.UPIScannerImageURL,
+      UPIName: s.UPIName,
+      UPIId: s.UPIId,
       registeredTeams,
       registeredTeamCount: registeredTeams.length
     };
@@ -62,17 +67,19 @@ exports.getSessionById = async (req, res) => {
 };
 
 exports.createSession = async (req, res) => {
-
+  if (req.file) {
+    req.body.UPIScannerImageURL = `/uploads/qr/${req.file.filename}`;
+  }
   const sessions = await auctionService.createAuctionSession(req.body);
 
   return response.success(res, MSG.AUCTIONSESSION.CREATED, { sessions }, HTTP.CREATED);
-
 };
 
 exports.updateSession = async (req, res) => {
-
   const { id } = req.params;
-
+  if (req.file) {
+    req.body.UPIScannerImageURL = `/uploads/qr/${req.file.filename}`;
+  }
   const updated = await auctionService.updateAuctionSession(id, req.body);
 
   if (!updated) {

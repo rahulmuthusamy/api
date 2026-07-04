@@ -7,19 +7,21 @@ exports.createAuctionSessionValidator = [
 
   body('StartDate')
     .notEmpty().withMessage('Start date is required')
-    .isISO8601().withMessage('Start date must be a valid ISO8601 date'),
+    .custom((value) => {
+      if (isNaN(Date.parse(value))) throw new Error('Start date must be a valid date');
+      return true;
+    }),
 
   body('EndDate')
     .notEmpty().withMessage('End date is required')
-    .isISO8601().withMessage('End date must be a valid ISO8601 date')
     .custom((value, { req }) => {
-      if (new Date(value) <= new Date(req.body.start_date)) {
+      if (isNaN(Date.parse(value))) throw new Error('End date must be a valid date');
+      // Compare against StartDate (PascalCase as sent from Angular FormData)
+      const start = req.body.StartDate;
+      if (start && new Date(value) <= new Date(start)) {
         throw new Error('End date must be after start date');
       }
       return true;
     }),
-
-  // body('Status')
-  //   .optional()
-  //   .isIn(['upcoming', 'ongoing', 'completed']).withMessage('Invalid session status')
 ];
+

@@ -5,10 +5,8 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             primaryKey: true
         },
-        UserID: {
-            type: DataTypes.INTEGER,
-            allowNull: false
-        },
+        UserID: { type: DataTypes.INTEGER, allowNull: false },
+        QRCodeUrl: { type: DataTypes.STRING, allowNull: true },
         FullName: {
             type: DataTypes.STRING,
             allowNull: false

@@ -155,12 +155,17 @@ const verifyPlayer = async (playerId, verifierUserId, status, notes) => {
 /**
  * Public Team Registration (Owner signs up for a specific session or generally)
  */
-const registerTeam = async (ownerName, contactNumber, password, teamName, location, slogan, sessionId, transactionId, notes, receiptFile) => {
+const registerTeam = async (ownerName, contactNumber, password, teamName, location, slogan, sessionId, transactionId, notes, receiptFile, qrCodeFile) => {
     // 1. Check if user with contact number exists
     const normalizedPhone = String(contactNumber || '').trim();
 
     let user = await User.findOne({ where: { Email: normalizedPhone } });
     let team, owner;
+
+    let qrCodePath = null;
+    if (qrCodeFile) {
+        qrCodePath = `/uploads/qr/${qrCodeFile.filename}`;
+    }
 
     if (user) {
         if (user.Role !== 'owner') {
@@ -185,6 +190,7 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
         owner.FullName = ownerName || owner.FullName;
         owner.ContactNumber = normalizedPhone;
         owner.RequestedSessionID = sessionId || owner.RequestedSessionID;
+        if (qrCodePath) owner.QRCodeUrl = qrCodePath;
         await owner.save();
     } else {
         // Hash password
@@ -214,7 +220,8 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
             TeamID: team.TeamID,
             RequestedSessionID: sessionId || null,
             VerificationStatus: 'pending', // Will be approved by admin
-            FeePaymentStatus: 'unpaid'
+            FeePaymentStatus: 'unpaid',
+            QRCodeUrl: qrCodePath
         });
     }
 
@@ -272,7 +279,7 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
 /**
  * Public Player Registration for an Auction Session
  */
-const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile) => {
+const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile) => {
     const { AuctionPlayer } = require('../models');
     const normalizedPhone = String(contactNumber || '').trim();
 
@@ -301,6 +308,10 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         player = await PlayerMaster.findOne({ where: { Mobile: normalizedPhone } });
     }
     const photoUrl = photoFile ? `/uploads/players/${photoFile.filename}` : null;
+    let qrCodePath = null;
+    if (qrCodeFile) {
+        qrCodePath = `/uploads/qr/${qrCodeFile.filename}`;
+    }
 
     if (!player) {
         player = await PlayerMaster.create({
@@ -313,6 +324,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
             BowlingStyle: bowlingStyle || 'Right-arm medium',
             JerseySize: jerseySize || 'M',
             PhotoURL: photoUrl,
+            QRCodeUrl: qrCodePath,
             Status: 'active' // auto-active for simplicity
         });
     } else {
@@ -326,6 +338,9 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         player.JerseySize = jerseySize || player.JerseySize || 'M';
         if (photoUrl) {
             player.PhotoURL = photoUrl;
+        }
+        if (qrCodePath) {
+            player.QRCodeUrl = qrCodePath;
         }
         await player.save();
     }
@@ -343,8 +358,30 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         SessionID: sessionId,
         PlayerID: player.PlayerID,
         BasePrice: basePrice || 100,
-        Status: 'available'
+        Status: 'available',
+        ApprovalStatus: 'pending',
+        PaymentStatus: transactionId ? 'pending_verification' : 'unpaid',
+        TransactionID: transactionId || null,
+        ReceiptPath: receiptFile ? `/uploads/receipts/${receiptFile.filename}` : null
     });
+
+    if (transactionId) {
+        // Process payment if provided
+        const existingPayment = await Payment.findOne({ where: { TransactionID: transactionId } });
+        if (existingPayment) {
+            throw new ApiError(HTTP.BAD_REQUEST, 'This transaction ID has already been submitted');
+        }
+        
+        await Payment.create({
+            PlayerID: player.PlayerID,
+            SessionID: sessionId,
+            Amount: 1000.00, // Typically driven by Session's PlayerRegistrationFee
+            TransactionID: transactionId,
+            ReceiptPath: receiptFile ? `/uploads/receipts/${receiptFile.filename}` : null,
+            Status: 'pending',
+            PaymentType: 'player_registration'
+        });
+    }
 
     return { user, player, auctionPlayer };
 };
@@ -446,6 +483,46 @@ const verifyOwner = async (ownerId, status) => {
     return { owner, assignedSession };
 };
 
+/**
+ * Get all pending players for auction review
+ */
+const getPendingAuctionPlayers = async () => {
+    const { AuctionPlayer, PlayerMaster, AuctionSession } = require('../models');
+    return await AuctionPlayer.findAll({
+        where: { ApprovalStatus: 'pending' },
+        include: [
+            { model: PlayerMaster },
+            { model: AuctionSession }
+        ],
+        order: [['CreatedAt', 'DESC']]
+    });
+};
+
+/**
+ * Admin verifies/approves player registration for auction
+ */
+const verifyAuctionPlayer = async (auctionPlayerId, status) => {
+    const { AuctionPlayer } = require('../models');
+    if (!['approved', 'rejected'].includes(status)) {
+        throw new Error('Invalid verification status');
+    }
+
+    const auctionPlayer = await AuctionPlayer.findByPk(auctionPlayerId);
+    if (!auctionPlayer) {
+        throw new Error('Auction player record not found');
+    }
+
+    auctionPlayer.ApprovalStatus = status;
+    if (status === 'approved') {
+        auctionPlayer.PaymentStatus = 'paid';
+    } else {
+        auctionPlayer.PaymentStatus = 'unpaid';
+    }
+    
+    await auctionPlayer.save();
+    return auctionPlayer;
+};
+
 module.exports = {
     submitOwnerFee,
     getPendingPayments,
@@ -456,5 +533,7 @@ module.exports = {
     registerTeam,
     registerPlayerForAuction,
     getPendingOwners,
-    verifyOwner
+    verifyOwner,
+    getPendingAuctionPlayers,
+    verifyAuctionPlayer
 };
