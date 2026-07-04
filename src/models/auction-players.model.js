@@ -16,6 +16,16 @@ module.exports = (sequelize, DataTypes) => {
         },
         CurrentBid: DataTypes.INTEGER,
         HighestBidTeamID: DataTypes.INTEGER,
+        ApprovalStatus: {
+            type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+            defaultValue: 'pending'
+        },
+        PaymentStatus: {
+            type: DataTypes.ENUM('unpaid', 'pending_verification', 'paid'),
+            defaultValue: 'unpaid'
+        },
+        TransactionID: DataTypes.STRING,
+        ReceiptPath: DataTypes.STRING,
         CreatedAt: DataTypes.DATE,
         UpdatedAt: DataTypes.DATE
     }, {

@@ -7,7 +7,19 @@ module.exports = (sequelize, DataTypes) => {
         },
         OwnerID: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
+        },
+        PlayerID: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        SessionID: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        PaymentType: {
+            type: DataTypes.ENUM('owner_registration', 'player_registration', 'other'),
+            defaultValue: 'owner_registration'
         },
         Amount: {
             type: DataTypes.DECIMAL(15, 2),
@@ -48,6 +60,8 @@ module.exports = (sequelize, DataTypes) => {
 
     Payment.associate = (models) => {
         Payment.belongsTo(models.Owner, { foreignKey: 'OwnerID', as: 'Owner' });
+        Payment.belongsTo(models.PlayerMaster, { foreignKey: 'PlayerID', as: 'Player' });
+        Payment.belongsTo(models.AuctionSession, { foreignKey: 'SessionID', as: 'AuctionSession' });
         Payment.belongsTo(models.User, { foreignKey: 'VerifiedBy', as: 'Verifier' });
     };
 
