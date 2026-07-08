@@ -26,6 +26,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         TransactionID: DataTypes.STRING,
         ReceiptPath: DataTypes.STRING,
+        IsIconicPlayer: DataTypes.BOOLEAN,
         CreatedAt: DataTypes.DATE,
         UpdatedAt: DataTypes.DATE
     }, {

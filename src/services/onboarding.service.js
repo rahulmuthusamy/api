@@ -279,7 +279,7 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
 /**
  * Public Player Registration for an Auction Session
  */
-const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile) => {
+const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile, dob, isIconicPlayer) => {
     const { AuctionPlayer } = require('../models');
     const normalizedPhone = String(contactNumber || '').trim();
 
@@ -318,6 +318,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
             UserID: user.UserID,
             Name: playerName,
             FatherName: fatherName,
+            DOB: dob,
             Mobile: normalizedPhone,
             Role: role || 'Batsman',
             BattingStyle: battingStyle || 'Right-hand bat',
@@ -336,6 +337,8 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         player.BattingStyle = player.BattingStyle || battingStyle || 'Right-hand bat';
         player.BowlingStyle = player.BowlingStyle || bowlingStyle || 'Right-arm medium';
         player.JerseySize = jerseySize || player.JerseySize || 'M';
+        player.DOB = player.DOB || dob;
+
         if (photoUrl) {
             player.PhotoURL = photoUrl;
         }
@@ -354,6 +357,11 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         throw new ApiError(HTTP.BAD_REQUEST, 'Player is already registered for this auction.');
     }
 
+    console.log('before inser icon value :' + isIconicPlayer);
+    console.log('insert value:' + isIconicPlayer ? 1 : 0);
+
+    let iconval = isIconicPlayer ? 1 : 0;
+
     const auctionPlayer = await AuctionPlayer.create({
         SessionID: sessionId,
         PlayerID: player.PlayerID,
@@ -362,7 +370,8 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         ApprovalStatus: 'pending',
         PaymentStatus: transactionId ? 'pending_verification' : 'unpaid',
         TransactionID: transactionId || null,
-        ReceiptPath: receiptFile ? `/uploads/receipts/${receiptFile.filename}` : null
+        ReceiptPath: receiptFile ? `/uploads/receipts/${receiptFile.filename}` : null,
+        IsIconicPlayer: iconval,
     });
 
     if (transactionId) {
@@ -371,7 +380,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         if (existingPayment) {
             throw new ApiError(HTTP.BAD_REQUEST, 'This transaction ID has already been submitted');
         }
-        
+
         await Payment.create({
             PlayerID: player.PlayerID,
             SessionID: sessionId,
@@ -518,7 +527,7 @@ const verifyAuctionPlayer = async (auctionPlayerId, status) => {
     } else {
         auctionPlayer.PaymentStatus = 'unpaid';
     }
-    
+
     await auctionPlayer.save();
     return auctionPlayer;
 };

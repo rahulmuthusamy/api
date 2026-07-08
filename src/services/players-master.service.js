@@ -31,7 +31,7 @@ const deletePlayerByID = async (id) => {
         if (typeof TeamPlayer !== 'undefined') await TeamPlayer.destroy({ where: { PlayerID: id }, transaction });
         if (typeof MatchSquad !== 'undefined') await MatchSquad.destroy({ where: { PlayerID: id }, transaction });
         if (typeof PlayerMatchStats !== 'undefined') await PlayerMatchStats.destroy({ where: { PlayerID: id }, transaction });
-        
+
         const deletedCount = await PlayerMaster.destroy({ where: { PlayerID: id }, transaction });
         await transaction.commit();
         return deletedCount;

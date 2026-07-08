@@ -40,6 +40,9 @@ router.use('/matches', matchRoutes);
 const auctionRoutes = require('./auction.routes');
 router.use('/auction', auctionRoutes);
 
+const websiteRoutes = require('./website.routes');
+router.use('/website', websiteRoutes);
+
 
 const controllers = require('../controllers/sample.controller')
 
