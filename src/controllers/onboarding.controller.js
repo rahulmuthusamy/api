@@ -67,24 +67,24 @@ exports.verifyPlayer = asyncHandler(async (req, res) => {
  */
 exports.registerTeam = asyncHandler(async (req, res) => {
     const { ownerName, contactNumber, password, teamName, location, slogan, sessionId, transactionId, notes } = req.body;
-    
+
     if (!ownerName || !contactNumber || !password || !teamName) {
         return response.error(res, { message: 'Missing required fields' }, HTTP.BAD_REQUEST);
     }
-    
+
     let receiptFile = null;
     let qrCodeFile = null;
     if (req.files) {
         if (req.files.receipt) receiptFile = req.files.receipt[0];
         if (req.files.qrCodeFile) qrCodeFile = req.files.qrCodeFile[0];
     }
-    
+
     if (!receiptFile || !transactionId) {
         return response.error(res, { message: 'Payment screenshot and Transaction ID are required' }, HTTP.BAD_REQUEST);
     }
-    
+
     const result = await onboardingService.registerTeam(
-        ownerName, contactNumber, password, teamName, location, slogan, sessionId, 
+        ownerName, contactNumber, password, teamName, location, slogan, sessionId,
         transactionId, notes, receiptFile, qrCodeFile
     );
     response.success(res, 'Team registered successfully.', result, HTTP.CREATED);
@@ -94,12 +94,14 @@ exports.registerTeam = asyncHandler(async (req, res) => {
  * Public endpoint for Player auction registration
  */
 exports.registerPlayerForAuction = asyncHandler(async (req, res) => {
-    const { playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, transactionId } = req.body;
-    
-    if (!playerName || !fatherName || !contactNumber || !sessionId) {
-        return response.error(res, { message: 'Missing required fields (playerName, fatherName, contactNumber, sessionId)' }, HTTP.BAD_REQUEST);
+    const { playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, transactionId, dob, isIconicPlayer } = req.body;
+
+    if (!playerName || !fatherName || !contactNumber || !sessionId || !dob) {
+        return response.error(res, { message: 'Missing required fields (playerName, fatherName, contactNumber, sessionId,dob)' }, HTTP.BAD_REQUEST);
     }
-    
+
+    console.log(isIconicPlayer);
+
     // Check if receipt file is provided if there's a transaction ID
     let photoFile = null;
     let receiptFile = null;
@@ -113,7 +115,7 @@ exports.registerPlayerForAuction = asyncHandler(async (req, res) => {
         photoFile = req.file;
     }
 
-    const result = await onboardingService.registerPlayerForAuction(playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile);
+    const result = await onboardingService.registerPlayerForAuction(playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile, dob, isIconicPlayer);
     response.success(res, 'Player registered for auction successfully.', result, HTTP.CREATED);
 });
 
