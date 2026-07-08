@@ -11,7 +11,7 @@ module.exports = {
   },
   DEFAULT: {
     windowMs: 5 * 60 * 1000,
-    max: 100,
+    max: 10000,
     messageKey: 'TOO_MANY_REQUESTS'
   }
 };
