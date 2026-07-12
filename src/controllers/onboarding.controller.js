@@ -159,11 +159,11 @@ exports.getOwnerDashboard = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
     const owner = await Owner.findOne({
         where: { UserID: userId },
-        include: [{ model: TeamMaster, attributes: ['TeamID', 'Name', 'LogoURL', 'Location', 'Slogan'] }]
+        include: [{ model: TeamMaster, as: 'Team', attributes: ['TeamID', 'Name', 'LogoURL', 'Location', 'Slogan'] }]
     });
     if (!owner) return response.error(res, { message: 'Owner profile not found' }, HTTP.NOT_FOUND);
 
-    const team = owner.TeamMaster;
+    const team = owner.Team;
     let auctionSession = null;
     let auctionTeam = null;
     let boughtPlayers = [];

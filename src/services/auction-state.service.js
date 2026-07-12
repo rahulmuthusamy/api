@@ -10,6 +10,31 @@ const DEFAULT_BID_DURATION_SECONDS = 30;
 const sessionStates = {};
 
 /**
+ * Simple Mulberry32 seeded PRNG
+ */
+function mulberry32(a) {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+/**
+ * Shuffle array using seeded randomizer
+ */
+function shuffleWithSeed(array, seed) {
+    const random = mulberry32(seed);
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
+/**
  * Load a session's full state from the database.
  * Returns the state object for the session.
  */
@@ -17,16 +42,35 @@ async function loadSessionState(sessionId) {
     const session = await AuctionSession.findByPk(sessionId);
     if (!session) throw new Error(`Auction session ${sessionId} not found`);
 
-    const players = await AuctionPlayer.findAll({
-        where: { SessionID: sessionId },
+    let players = await AuctionPlayer.findAll({
+        where: {
+            SessionID: sessionId,
+            ApprovalStatus: 'approved',
+            PaymentStatus: 'paid'
+        },
         include: [{ model: PlayerMaster, attributes: ['PlayerID', 'Name', 'Role', 'PhotoURL', 'BattingStyle', 'BowlingStyle', 'CanCaptain'] }],
         order: [['AuctionPlayerID', 'ASC']]
     });
 
-    const teams = await AuctionTeam.findAll({
+    // Randomize player order consistently for the session
+    players = shuffleWithSeed(players, parseInt(sessionId, 10));
+
+    const rawTeams = await AuctionTeam.findAll({
         where: { SessionID: sessionId },
         include: [{ model: TeamMaster, attributes: ['TeamID', 'Name', 'LogoURL'] }]
     });
+
+    // Only include teams where the owner is approved and paid
+    const { Owner } = require('../models');
+    const approvedOwners = await Owner.findAll({
+        where: {
+            VerificationStatus: 'approved',
+            FeePaymentStatus: 'paid'
+        },
+        attributes: ['TeamID']
+    });
+    const approvedTeamIds = new Set(approvedOwners.map(o => o.TeamID).filter(id => id !== null));
+    const teams = rawTeams.filter(t => approvedTeamIds.has(t.TeamID));
 
     const state = {
         sessionId,
@@ -86,11 +130,23 @@ async function getSessionState(sessionId) {
 }
 
 /**
+ * Get state synchronously — returns null if not yet loaded into memory.
+ * Use this to mutate state without triggering a DB load.
+ */
+function getSessionStateSync(sessionId) {
+    return sessionStates[sessionId] || null;
+}
+
+/**
  * Broadcast an event to all clients in the session room.
+ * Also broadcasts to the read-only public board room.
  */
 function broadcast(state, event, data) {
     if (state.namespace) {
         state.namespace.to(`session-${state.sessionId}`).emit(event, data);
+    }
+    if (global._broadcastToBoard) {
+        global._broadcastToBoard(state.namespace?.server || require('../app').io, state.sessionId, event, data);
     }
 }
 
@@ -365,6 +421,7 @@ function clearSessionState(sessionId) {
 
 module.exports = {
     getSessionState,
+    getSessionStateSync,
     loadSessionState,
     clearSessionState,
     broadcast,

@@ -6,6 +6,7 @@ const auctionController = require('../controllers/auction.controller');
 router.post('/sessions', auctionController.createSession);
 router.get('/sessions/live', auctionController.getLiveSessions);
 router.post('/sessions/:sessionId/start', auctionController.startAuction);
+router.post('/sessions/:sessionId/pause', auctionController.pauseAuction);
 router.post('/sessions/:sessionId/complete', auctionController.completeAuction);
 
 // Team Management
@@ -23,6 +24,7 @@ router.delete('/sessions/:sessionId/players/:playerId', auctionController.remove
 router.post('/sessions/:sessionId/validate-bid', auctionController.validateBid);
 router.post('/sessions/:sessionId/sell', auctionController.sellPlayer);
 router.post('/sessions/:sessionId/unsold', auctionController.markUnsold);
+router.post('/sessions/:sessionId/requeue-unsold', auctionController.requeueUnsoldPlayers);
 
 // Results
 router.get('/sessions/:sessionId/results', auctionController.getAuctionResults);

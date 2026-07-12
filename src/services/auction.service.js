@@ -77,10 +77,14 @@ class AuctionService {
   async startAuction(sessionId) {
     const session = await AuctionSession.findByPk(sessionId);
     if (!session) throw new Error('Auction session not found');
-    if (session.Status === 'live') throw new Error('Auction is already live');
+    
+    if (session.Status !== 'live') {
+      session.Status = 'live';
+      await session.save();
+    }
 
-    session.Status = 'live';
-    await session.save();
+    // Clear in-memory state for this session to force reload
+    auctionStateService.clearSessionState(sessionId);
 
     return { success: true, message: 'Auction started successfully', data: session };
   }
@@ -99,6 +103,23 @@ class AuctionService {
     auctionStateService.clearSessionState(sessionId);
 
     return { success: true, message: 'Auction completed successfully', data: session };
+  }
+
+  /**
+   * Pause auction session (sets status back to upcoming)
+   */
+  async pauseAuction(sessionId) {
+    const session = await AuctionSession.findByPk(sessionId);
+    if (!session) throw new Error('Auction session not found');
+    if (session.Status !== 'live') throw new Error('Auction is not live');
+
+    session.Status = 'upcoming'; // Using 'upcoming' to effectively pause it
+    await session.save();
+
+    // Clear in-memory state for this session
+    auctionStateService.clearSessionState(sessionId);
+
+    return { success: true, message: 'Auction paused successfully', data: session };
   }
 
   /**
@@ -161,25 +182,75 @@ class AuctionService {
   }
 
   /**
+   * Re-queue all unsold/skipped players back to 'available'.
+   * Also appends them to the end of the in-memory state queue.
+   */
+  async requeueUnsoldPlayers(sessionId) {
+    const { Op } = require('sequelize');
+
+    // Update DB: reset unsold/skipped back to available
+    const [updatedCount] = await AuctionPlayer.update(
+      { Status: 'available', CurrentBid: null, HighestBidTeamID: null },
+      { where: { SessionID: sessionId, Status: { [Op.in]: ['unsold', 'skipped'] } } }
+    );
+
+    // Update in-memory state if loaded
+    const state = auctionStateService.getSessionStateSync(sessionId);
+    if (state) {
+      // Reset in-memory player status and move them after the current index
+      const requeued = [];
+      state.players.forEach(p => {
+        if (p.status === 'unsold' || p.status === 'skipped') {
+          p.status = 'available';
+          p.currentBid = p.basePrice;
+          p.highestBidTeamId = null;
+          requeued.push(p);
+        }
+      });
+
+      // Move requeued players to the end of the queue (after current index)
+      if (requeued.length > 0) {
+        // Remove them from current positions
+        const remaining = state.players.filter(p => !requeued.includes(p));
+        // Append requeued players after the list
+        state.players = [...remaining, ...requeued];
+        // Fix current index if needed
+        if (state.currentPlayerIndex >= state.players.length) {
+          state.currentPlayerIndex = state.players.findIndex(p => p.status === 'available');
+          if (state.currentPlayerIndex < 0) state.currentPlayerIndex = state.players.length;
+        }
+      }
+    }
+
+    return { success: true, message: `${updatedCount} player(s) re-queued for auction`, data: { requeuedCount: updatedCount } };
+  }
+
+  /**
    * Get full auction results — sold players, team standings, budget usage
    */
   async getAuctionResults(sessionId) {
     const session = await AuctionSession.findByPk(sessionId);
     if (!session) throw new Error('Auction session not found');
 
-    const teams = await AuctionTeam.findAll({
+    const rawTeams = await AuctionTeam.findAll({
       where: { SessionID: sessionId },
-      include: [{ model: TeamMaster, attributes: ['TeamID', 'Name', 'LogoURL'] }],
-      order: [['PlayersCount', 'DESC']]
+      include: [{ model: TeamMaster, attributes: ['Name', 'LogoURL'] }]
     });
+
+    const { Owner } = require('../models');
+    const approvedOwners = await Owner.findAll({
+        where: { VerificationStatus: 'approved', FeePaymentStatus: 'paid' },
+        attributes: ['TeamID']
+    });
+    const approvedTeamIds = new Set(approvedOwners.map(o => o.TeamID).filter(id => id !== null));
+    const teams = rawTeams.filter(t => approvedTeamIds.has(t.TeamID));
 
     const soldPlayers = await AuctionPlayer.findAll({
       where: { SessionID: sessionId, Status: 'sold' },
       include: [
-        { model: PlayerMaster, attributes: ['PlayerID', 'Name', 'Role', 'PhotoURL', 'BattingStyle'] },
-        { model: TeamMaster, as: 'WinningTeam', attributes: ['TeamID', 'Name', 'LogoURL'] }
-      ],
-      order: [['SoldPrice', 'DESC']]
+        { model: PlayerMaster, attributes: ['PlayerID', 'Name', 'Role', 'PhotoURL'] },
+        { model: TeamMaster, attributes: ['TeamID', 'Name', 'LogoURL'] }
+      ]
     });
 
     const unsoldPlayers = await AuctionPlayer.findAll({
@@ -289,10 +360,19 @@ class AuctionService {
    * Get all teams registered for a session
    */
   async getSessionTeams(sessionId) {
-    const teams = await AuctionTeam.findAll({
+    const rawTeams = await AuctionTeam.findAll({
       where: { SessionID: sessionId },
       include: [{ model: TeamMaster, attributes: ['TeamID', 'Name', 'LogoURL'] }]
     });
+
+    const { Owner } = require('../models');
+    const approvedOwners = await Owner.findAll({
+        where: { VerificationStatus: 'approved', FeePaymentStatus: 'paid' },
+        attributes: ['TeamID']
+    });
+    const approvedTeamIds = new Set(approvedOwners.map(o => o.TeamID).filter(id => id !== null));
+    const teams = rawTeams.filter(t => approvedTeamIds.has(t.TeamID));
+
     return {
       success: true, data: {
         teams: teams.map(t => ({
@@ -313,7 +393,11 @@ class AuctionService {
    */
   async getSessionPlayers(sessionId) {
     const players = await AuctionPlayer.findAll({
-      where: { SessionID: sessionId },
+      where: { 
+        SessionID: sessionId,
+        ApprovalStatus: 'approved',
+        PaymentStatus: 'paid'
+      },
       include: [{ model: PlayerMaster, attributes: ['PlayerID', 'Name', 'Role', 'PhotoURL', 'BattingStyle', 'BowlingStyle'] }],
       order: [['Status', 'ASC'], ['BasePrice', 'DESC']]
     });

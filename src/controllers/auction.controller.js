@@ -116,6 +116,47 @@ exports.markUnsold = async (req, res) => {
 };
 
 /**
+ * Re-queue all unsold/skipped players back to available
+ */
+exports.requeueUnsoldPlayers = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const result = await auctionService.requeueUnsoldPlayers(sessionId);
+
+    // Broadcast updated state to all socket clients so their player list refreshes
+    const io = req.app.locals.io;
+    if (io) {
+      const auctionStateService = require('../services/auction-state.service');
+      const auctionNamespace = io.of('/auction');
+      try {
+        const state = await auctionStateService.getSessionState(sessionId);
+        auctionNamespace.to(`session-${sessionId}`).emit('session-state', {
+          session: {
+            sessionId: state.sessionId,
+            name: state.session.Name,
+            maxBudget: state.session.MaxBudget,
+            maxPlayersPerTeam: state.session.MaxPlayersPerTeam,
+            status: state.session.Status,
+          },
+          players: state.players,
+          teams: state.teams,
+          currentPlayer: state.players[state.currentPlayerIndex] || null,
+          currentPlayerIndex: state.currentPlayerIndex,
+          secondsLeft: state.secondsLeft,
+        });
+      } catch (e) {
+        console.error('Could not broadcast after requeue:', e.message);
+      }
+    }
+
+    return response.success(res, result.message, result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
  * Complete auction
  */
 exports.completeAuction = async (req, res) => {
@@ -123,6 +164,55 @@ exports.completeAuction = async (req, res) => {
     const { sessionId } = req.params;
 
     const result = await auctionService.completeAuction(sessionId);
+
+    // Emit socket event to all clients in the session room
+    const io = req.app.locals.io;
+    if (io) {
+      const auctionNamespace = io.of('/auction');
+      auctionNamespace.to(`session-${sessionId}`).emit('auction-ended', {
+        sessionId: +sessionId,
+        message: 'Auction has ended!',
+        session: result.data
+      });
+    }
+
+    return response.success(res, result.message, result.data);
+  } catch (error) {
+    return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);
+  }
+};
+
+/**
+ * Pause auction
+ */
+exports.pauseAuction = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const result = await auctionService.pauseAuction(sessionId);
+
+    // Emit socket event to all clients in the session room
+    const io = req.app.locals.io;
+    if (io) {
+      const auctionNamespace = io.of('/auction');
+      // For a paused session, we emit a session state update so clients see it as 'upcoming'/paused
+      auctionNamespace.to(`session-${sessionId}`).emit('auction-paused', {
+        sessionId: +sessionId,
+        message: 'Auction has been paused.',
+        session: result.data
+      });
+      // Broadcast a minimal session-state so clients update status in real-time
+      auctionNamespace.to(`session-${sessionId}`).emit('session-state', {
+        session: {
+          sessionId: +sessionId,
+          name: result.data?.Name,
+          status: 'upcoming',
+          maxBudget: result.data?.MaxBudget,
+          maxPlayersPerTeam: result.data?.MaxPlayersPerTeam
+        }
+      });
+    }
+
     return response.success(res, result.message, result.data);
   } catch (error) {
     return response.error(res, { message: error.message }, HTTP.BAD_REQUEST);

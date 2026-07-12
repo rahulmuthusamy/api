@@ -8,6 +8,51 @@ const jwt = require('../utils/jwt');
 module.exports = function initializeSockets(io) {
 
     /* ========================================================
+       PUBLIC AUCTION BOARD NAMESPACE  (/auction-board)
+       Read-only spectator view. No authentication required.
+       Spectators join a session room and receive live events.
+     ======================================================== */
+    const boardNamespace = io.of('/auction-board');
+
+    // No auth middleware — anyone can connect
+    boardNamespace.on('connection', (socket) => {
+        console.log(`👁️ Board spectator connected: ${socket.id}`);
+
+        socket.on('watch-session', async ({ sessionId }) => {
+            try {
+                const state = await auctionStateService.getSessionState(sessionId);
+                socket.join(`board-${sessionId}`);
+                socket.emit('board-state', {
+                    session: {
+                        sessionId: state.sessionId,
+                        name: state.session.Name,
+                        status: state.session.Status,
+                        maxBudget: state.session.MaxBudget,
+                        maxPlayersPerTeam: state.session.MaxPlayersPerTeam,
+                    },
+                    players: state.players,
+                    teams: state.teams,
+                    currentPlayer: state.players[state.currentPlayerIndex] || null,
+                    secondsLeft: state.secondsLeft,
+                });
+                console.log(`👁️ Spectator ${socket.id} watching session ${sessionId}`);
+            } catch (err) {
+                socket.emit('board-error', { message: err.message });
+            }
+        });
+
+        socket.on('disconnect', () => {
+            console.log(`👁️ Spectator disconnected: ${socket.id}`);
+        });
+    });
+
+    // Helper: broadcast live events to board spectators when admin actions happen
+    // This is called by the auction socket handlers below
+    global._broadcastToBoard = (io, sessionId, event, data) => {
+        io.of('/auction-board').to(`board-${sessionId}`).emit(event, data);
+    };
+
+    /* ========================================================
        AUCTION NAMESPACE  (/auction)
        All auction events — Admin and Teams both connect here.
        Roles are determined by the JWT token passed on connect.
@@ -15,14 +60,24 @@ module.exports = function initializeSockets(io) {
     const auctionNamespace = io.of('/auction');
 
     auctionNamespace.use((socket, next) => {
-        const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+        let token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+        
+        if (token) {
+            // Remove 'Bearer ' prefix if present
+            if (token.startsWith('Bearer ')) token = token.slice(7);
+            // Remove surrounding quotes if somehow stringified
+            token = token.replace(/^["']|["']$/g, '');
+        }
+
         if (!token) return next(new Error('Authentication token missing'));
+        
         try {
             const decoded = jwt.verifyAccessToken(token);
             socket.data.userId = decoded.userId;
             socket.data.userRole = decoded.role;
             next();
         } catch (err) {
+            console.error('Socket Auth Error:', err.message, 'Token Snippet:', token.substring(0, 15) + '...');
             next(new Error('Invalid authentication token'));
         }
     });
@@ -74,10 +129,12 @@ module.exports = function initializeSockets(io) {
                     return socket.emit('error', { message: result.reason });
                 }
 
-                auctionNamespace.to(`session-${sessionId}`).emit('player-started', {
+                const eventData = {
                     player: result.player,
                     secondsLeft: state.secondsLeft,
-                });
+                };
+                auctionNamespace.to(`session-${sessionId}`).emit('player-started', eventData);
+                if (global._broadcastToBoard) global._broadcastToBoard(io, sessionId, 'player-started', eventData);
 
                 console.log(`▶️  Session ${sessionId}: Player "${result.player.name}" started`);
             } catch (err) {
@@ -99,10 +156,12 @@ module.exports = function initializeSockets(io) {
                 }
 
                 const nextPlayer = state.players[state.currentPlayerIndex] || null;
-                auctionNamespace.to(`session-${sessionId}`).emit('player-skipped', {
+                const eventData = {
                     skippedPlayerId: state.players[state.currentPlayerIndex - 1]?.playerId,
                     nextPlayer,
-                });
+                };
+                auctionNamespace.to(`session-${sessionId}`).emit('player-skipped', eventData);
+                if (global._broadcastToBoard) global._broadcastToBoard(io, sessionId, 'player-skipped', eventData);
 
                 console.log(`⏭️  Session ${sessionId}: Player skipped`);
             } catch (err) {
@@ -124,13 +183,15 @@ module.exports = function initializeSockets(io) {
                 }
 
                 const nextPlayer = state.players[state.currentPlayerIndex] || null;
-                auctionNamespace.to(`session-${sessionId}`).emit('player-sold', {
+                const eventData = {
                     player: result.player,
                     teamId,
                     soldPrice: finalBid,
                     teams: result.teams,
                     nextPlayer,
-                });
+                };
+                auctionNamespace.to(`session-${sessionId}`).emit('player-sold', eventData);
+                if (global._broadcastToBoard) global._broadcastToBoard(io, sessionId, 'player-sold', eventData);
 
                 console.log(`🔨 Session ${sessionId}: Player "${result.player.name}" sold for ₹${finalBid}`);
             } catch (err) {
@@ -152,10 +213,12 @@ module.exports = function initializeSockets(io) {
                 }
 
                 const nextPlayer = state.players[state.currentPlayerIndex] || null;
-                auctionNamespace.to(`session-${sessionId}`).emit('player-unsold', {
+                const eventData = {
                     player: state.players[state.currentPlayerIndex - 1],
                     nextPlayer,
-                });
+                };
+                auctionNamespace.to(`session-${sessionId}`).emit('player-unsold', eventData);
+                if (global._broadcastToBoard) global._broadcastToBoard(io, sessionId, 'player-unsold', eventData);
 
                 console.log(`❌ Session ${sessionId}: Player marked unsold`);
             } catch (err) {
@@ -188,8 +251,7 @@ module.exports = function initializeSockets(io) {
                 // Confirm to bidder
                 socket.emit('bid-accepted', { bidAmount, playerId });
 
-                // Broadcast to everyone in the room
-                auctionNamespace.to(`session-${sessionId}`).emit('bid-placed', {
+                const eventData = {
                     playerId,
                     teamId,
                     teamName: team?.name,
@@ -197,7 +259,10 @@ module.exports = function initializeSockets(io) {
                     currentBid: player.currentBid,
                     secondsLeft: state.secondsLeft,
                     timestamp: new Date(),
-                });
+                };
+                // Broadcast to everyone in the room
+                auctionNamespace.to(`session-${sessionId}`).emit('bid-placed', eventData);
+                if (global._broadcastToBoard) global._broadcastToBoard(io, sessionId, 'bid-placed', eventData);
 
                 console.log(`💰 Session ${sessionId}: Team ${team?.name} bid ₹${bidAmount} on player ${player.name}`);
             } catch (err) {

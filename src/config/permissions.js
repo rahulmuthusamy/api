@@ -1,23 +1,27 @@
-module.export = {
+module.exports = {
   ROLE_PERMISSIONS: {
-    SA: {
+    super_admin: {
       accessAll: true
     },
-    Admin: {
+    owner: {
       pages: {
-        registration: ['create', 'read', 'update', 'delete'
-        ],
-        userRegistration: ['create', 'read', 'update', 'delete'
-        ],
-        patientRegistration: ['read', 'update', 'delete'
-        ],
+        auctionSession: ['read'],
+        teams: ['read', 'update'],
+        players: ['read'],
+        auctionBids: ['create', 'read']
       }
     },
-    FrontDesk: {
+    player: {
       pages: {
-        registration: ['read'
-        ]
+        players: ['read', 'update']
+      }
+    },
+    member: {
+      pages: {
+        auctionSession: ['read'],
+        teams: ['read'],
+        players: ['read']
       }
     }
   }
-}
+};

@@ -3,7 +3,7 @@ const permissions = require('../config/permissions');
 const checkPermission = (page, action) => {
   return (req, res, next) => {
     const userRole = req.user.role; 
-    const rolePerm = permissions[userRole];
+    const rolePerm = permissions.ROLE_PERMISSIONS[userRole];
 
     if (!rolePerm) return res.status(403).json({ message: 'Role not found' });
 
