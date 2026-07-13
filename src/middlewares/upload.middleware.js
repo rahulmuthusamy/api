@@ -1,69 +1,119 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { imageFileFilter, documentFileFilter, generateFileName } = require('../utils/file.util.js');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const {
+    imageFileFilter,
+    documentFileFilter,
+    generateFileName,
+} = require("../utils/file.util.js");
 
-// Folders
+// Upload folders
 const FOLDERS = {
-    players: 'players',
-    carousel: 'carousel',
-    gallery: 'gallery',
-    sponsors: 'sponsors',
-    branding: 'branding',
-    teams: 'teams',
-    tournaments: 'tournaments',
-    receipts: 'receipts',
-    documents: 'documents'
+    players: "players",
+    carousel: "carousel",
+    gallery: "gallery",
+    sponsors: "sponsors",
+    branding: "branding",
+    teams: "teams",
+    tournaments: "tournaments",
+    receipts: "receipts",
+    documents: "documents",
+    qr: "qr",
 };
 
-// Storage factory
-const storageFactory = (folder) => {
-    const dir = path.join(process.cwd(), `uploads/${folder}`);
+// Create upload directory if it doesn't exist
+const ensureDirectory = (folder) => {
+    const dir = path.join(process.cwd(), "uploads", folder);
+
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    return multer.diskStorage({
-        destination: (req, file, cb) => cb(null, dir),
-        filename: (req, file, cb) => cb(null, generateFileName(file))
-    });
+
+    return dir;
 };
 
-const createUploader = (folder, fileFilter = imageFileFilter) => multer({
-    storage: storageFactory(folder),
-    fileFilter: fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-});
+// Storage factory
+const storageFactory = (folder) =>
+    multer.diskStorage({
+        destination: (req, file, cb) => {
+            cb(null, ensureDirectory(folder));
+        },
+        filename: (req, file, cb) => {
+            cb(null, generateFileName(file));
+        },
+    });
 
-const uploadPlayerImage = createUploader(FOLDERS.players);
-const uploadCarouselImage = createUploader(FOLDERS.carousel);
-const uploadGalleryImage = createUploader(FOLDERS.gallery);
-const uploadSponsorLogo = createUploader(FOLDERS.sponsors);
-const uploadAppLogo = createUploader(FOLDERS.branding);
-const uploadTeamLogo = createUploader(FOLDERS.teams);
-const uploadTournament = createUploader(FOLDERS.tournaments);
+// Default multer configuration
+const multerOptions = (folder, fileFilter = imageFileFilter) =>
+    multer({
+        storage: storageFactory(folder),
+        fileFilter,
+        limits: {
+            fileSize: 20 * 1024 * 1024, // 20 MB
+            fieldSize: 20 * 1024 * 1024, // 20 MB per text field
+            fields: 100, // Maximum text fields
+            files: 20, // Maximum uploaded files
+            parts: 120, // Total parts (fields + files)
+        },
+    });
 
-// New document uploaders
-const uploadReceipt = createUploader(FOLDERS.receipts, documentFileFilter);
-const uploadVerificationDoc = createUploader(FOLDERS.documents, documentFileFilter);
+// Uploaders
+const uploadPlayerImage = multerOptions(FOLDERS.players);
+const uploadCarouselImage = multerOptions(FOLDERS.carousel);
+const uploadGalleryImage = multerOptions(FOLDERS.gallery);
+const uploadSponsorLogo = multerOptions(FOLDERS.sponsors);
+const uploadAppLogo = multerOptions(FOLDERS.branding);
+const uploadTeamLogo = multerOptions(FOLDERS.teams);
+const uploadTournament = multerOptions(FOLDERS.tournaments);
 
-// Custom storage for mixed player registration
+const uploadReceipt = multerOptions(
+    FOLDERS.receipts,
+    documentFileFilter
+);
+
+const uploadVerificationDoc = multerOptions(
+    FOLDERS.documents,
+    documentFileFilter
+);
+
+// Mixed upload (player + receipt + QR)
 const mixedStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         let folder = FOLDERS.players;
-        if (file.fieldname === 'receipt') folder = FOLDERS.receipts;
-        if (file.fieldname === 'qrCodeFile') folder = 'qr';
-        
-        const dir = path.join(process.cwd(), `uploads/${folder}`);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => cb(null, generateFileName(file))
-});
-const uploadMixedRegistration = multer({ storage: mixedStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-const uploadSessionQR = createUploader('qr');
+        switch (file.fieldname) {
+            case "receipt":
+                folder = FOLDERS.receipts;
+                break;
+
+            case "qrCodeFile":
+                folder = FOLDERS.qr;
+                break;
+
+            default:
+                folder = FOLDERS.players;
+        }
+
+        cb(null, ensureDirectory(folder));
+    },
+
+    filename: (req, file, cb) => {
+        cb(null, generateFileName(file));
+    },
+});
+
+const uploadMixedRegistration = multer({
+    storage: mixedStorage,
+    limits: {
+        fileSize: 20 * 1024 * 1024,
+        fieldSize: 20 * 1024 * 1024,
+        fields: 100,
+        files: 20,
+        parts: 120,
+    },
+});
+
+const uploadSessionQR = multerOptions(FOLDERS.qr);
 
 module.exports = {
     uploadPlayerImage,
@@ -76,5 +126,5 @@ module.exports = {
     uploadReceipt,
     uploadVerificationDoc,
     uploadMixedRegistration,
-    uploadSessionQR
+    uploadSessionQR,
 };

@@ -279,7 +279,7 @@ const registerTeam = async (ownerName, contactNumber, password, teamName, locati
 /**
  * Public Player Registration for an Auction Session
  */
-const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile, dob, isIconicPlayer) => {
+const registerPlayerForAuction = async (playerName, fatherName, contactNumber, role, battingStyle, bowlingStyle, jerseySize, basePrice, sessionId, photoFile, transactionId, receiptFile, qrCodeFile, dob, isIconicPlayer, aadharFile) => {
     const { AuctionPlayer } = require('../models');
     const normalizedPhone = String(contactNumber || '').trim();
 
@@ -308,6 +308,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         player = await PlayerMaster.findOne({ where: { Mobile: normalizedPhone } });
     }
     const photoUrl = photoFile ? `/uploads/players/${photoFile.filename}` : null;
+    const aadharUrl = aadharFile ? `/uploads/players/${aadharFile.filename}` : null;
     let qrCodePath = null;
     if (qrCodeFile) {
         qrCodePath = `/uploads/qr/${qrCodeFile.filename}`;
@@ -326,6 +327,7 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
             JerseySize: jerseySize || 'M',
             PhotoURL: photoUrl,
             QRCodeUrl: qrCodePath,
+            AadharURL: aadharUrl,
             Status: 'active' // auto-active for simplicity
         });
     } else {
@@ -344,6 +346,9 @@ const registerPlayerForAuction = async (playerName, fatherName, contactNumber, r
         }
         if (qrCodePath) {
             player.QRCodeUrl = qrCodePath;
+        }
+        if (aadharUrl) {
+            player.AadharURL = aadharUrl;
         }
         await player.save();
     }

@@ -39,6 +39,7 @@ exports.createPlayer = async (req, res) => {
         : null;
 
     payload.PhotoURL = imagePath;
+    payload.AadharURL = req.files?.AadharCard?.[0]?.path ? `/uploads/players/${req.files.AadharCard[0].filename}` : null;
 
     const existing = await playersService.findPlayer({ Mobile: Mobile });
 

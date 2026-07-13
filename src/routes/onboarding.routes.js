@@ -23,7 +23,7 @@ router.post('/admin/players/:playerId/verify', authMiddleware, rbacMiddleware(['
 router.post('/public/register-team', uploadMixedRegistration.fields([{ name: 'receipt', maxCount: 1 }, { name: 'qrCodeFile', maxCount: 1 }]), onboardingController.registerTeam);
 
 // Public Player Auction Registration
-router.post('/public/register-player', uploadMixedRegistration.fields([{ name: 'photo', maxCount: 1 }, { name: 'receipt', maxCount: 1 }, { name: 'qrCodeFile', maxCount: 1 }]), onboardingController.registerPlayerForAuction);
+router.post('/public/register-player', uploadMixedRegistration.fields([{ name: 'photo', maxCount: 1 }, { name: 'receipt', maxCount: 1 }, { name: 'qrCodeFile', maxCount: 1 }, { name: 'aadharFile', maxCount: 1 }]), onboardingController.registerPlayerForAuction);
 // Admin views and verifies pending team/owner registrations
 router.get('/admin/owners', authMiddleware, rbacMiddleware(['super_admin']), onboardingController.getPendingOwners);
 router.post('/admin/owners/:ownerId/verify', authMiddleware, rbacMiddleware(['super_admin']), onboardingController.verifyOwner);
